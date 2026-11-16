@@ -45,16 +45,15 @@
     "typecheck": "tsc --noEmit",
     "watch": "pkg-utils watch --strict"
   },
-  "dependencies": {
-    "@sanity/icons": "^5.3.0",
-    "@sanity/ui": "^4.4.11"
-  },
   "devDependencies": {
+    "@sanity/icons": "^5.2.3",
     "@sanity/pkg-utils": "^10.7.2",
     "@sanity/plugin-kit": "^6.0.0",
+    "@sanity/ui": "^4.4.10",
     "@types/react": "^19.2.17",
     "@typescript-eslint/eslint-plugin": "^8.62.0",
     "@typescript-eslint/parser": "^8.62.0",
+    "ajv": "^8",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-config-sanity": "^7.1.4",
@@ -65,13 +64,15 @@
     "prettier-plugin-packagejson": "^3.0.2",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "sanity": "^6.2.0",
+    "sanity": "^6.23.0",
     "styled-components": "^6.4.3",
     "typescript": "^6.0.3"
   },
   "peerDependencies": {
+    "@sanity/icons": "^5",
+    "@sanity/ui": "^4",
     "react": "^18 || ^19",
-    "sanity": "^5 || ^6.0.0-0"
+    "sanity": "^6"
   },
   "engines": {
     "node": ">=20.19 <22 || >=22.12"

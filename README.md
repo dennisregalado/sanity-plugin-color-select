@@ -16,6 +16,8 @@ A Sanity Studio color field built like a link picker: one input, a popover, and 
 npm install sanity-plugin-color-select
 ```
 
+**Requirements:** Sanity Studio 6. `@sanity/ui` (v4) and `@sanity/icons` (v5) are peer dependencies, and `sanity` already installs them, so there's nothing else to add. The plugin uses your Studio's copy. On Sanity 5, stay on 0.2.x (`npm install sanity-plugin-color-select@0.2`).
+
 ```ts
 // sanity.config.ts
 import {defineConfig} from 'sanity'

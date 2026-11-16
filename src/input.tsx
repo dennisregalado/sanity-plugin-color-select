@@ -34,6 +34,14 @@ import {ColorPicker} from './picker'
 import {PresetResults, PresetList, ColorSwatch, usePresets} from './presets'
 import type {ColorOptions, ColorPickerInputProps, ColorPreset} from './types'
 
+/** Points each ref (callback or object) at `node`. */
+function assignRefs<T>(node: T | null, ...refs: Array<React.Ref<T> | undefined>) {
+  for (const ref of refs) {
+    if (typeof ref === 'function') ref(node)
+    else if (ref) (ref as React.MutableRefObject<T | null>).current = node
+  }
+}
+
 /** A bleed icon button sized like Sanity UI's TextInput clear button. */
 function FieldAction({
   label,
@@ -222,7 +230,8 @@ function ColorField(props: ColorFieldProps) {
   // Inline "Name the color" mode: the name being typed and the preset it created.
   const [naming, setNaming] = useState<{name: string; color: Hsva} | null>(null)
   const namingRef = useRef(false)
-  const [focusInput, setFocusInput] = useState(false)
+  // Bumped by handlers that should move focus to the input once the next render is committed.
+  const [focusRequest, setFocusRequest] = useState(0)
 
   const typedColor = paletteOnly ? null : parseColor(typed)
   const shown =
@@ -236,10 +245,8 @@ function ColorField(props: ColorFieldProps) {
   const query = !pickerOnly && typed !== null && (paletteOnly || !typedColor) ? typed : ''
 
   useEffect(() => {
-    if (!focusInput) return
-    setFocusInput(false)
-    inputRef.current?.focus()
-  }, [focusInput])
+    if (focusRequest) inputRef.current?.focus()
+  }, [focusRequest])
 
   const close = useCallback(() => {
     setOpen(false)
@@ -280,7 +287,7 @@ function ColorField(props: ColorFieldProps) {
     setDragging(null)
     if (hasValue) onClear()
     setOpen(true)
-    setFocusInput(true)
+    setFocusRequest((n) => n + 1)
   }
 
   // The preset created by the save button; naming mode only renames it.
@@ -295,7 +302,7 @@ function ColorField(props: ColorFieldProps) {
     namingRef.current = true
     setNaming({name: '', color: shown})
     close()
-    setFocusInput(true)
+    setFocusRequest((n) => n + 1)
     createdRef.current = client.create({_type: presetType, title: hex, color}).then((created) => {
       refresh()
       setPreset({_id: created._id, title: hex, color})
@@ -439,13 +446,9 @@ function ColorField(props: ColorFieldProps) {
         )}
         <TextInput
           {...elementProps}
-          ref={(node) => {
-            inputRef.current = node
-            const forwarded = elementProps.ref as React.Ref<HTMLInputElement> | undefined
-            if (typeof forwarded === 'function') forwarded(node)
-            else if (forwarded)
-              (forwarded as React.MutableRefObject<HTMLInputElement | null>).current = node
-          }}
+          ref={(node) =>
+            assignRefs(node, inputRef, elementProps.ref as React.Ref<HTMLInputElement> | undefined)
+          }
           readOnly={readOnly}
           placeholder={placeholder}
           fontSize={1}
@@ -526,23 +529,25 @@ export function ColorPickerInput(props: ColorPickerInputProps) {
   const referenceId = value?.reference?._ref
   const referencedColor = useReferencedPreset(referenceId, presetType)
   const storedValue = value?.value
-  const keyed = useMemo(() => (value?._key ? {_key: value._key} : {}), [value?._key])
+  const key = value?._key
+  const keyed = useMemo(() => (key ? {_key: key} : {}), [key])
+  const typeName = schemaType.name
 
   const onValue = useCallback(
-    (next: ColorValue) => onChange(set({...keyed, _type: schemaType.name, value: next})),
-    [keyed, onChange, schemaType.name],
+    (next: ColorValue) => onChange(set({...keyed, _type: typeName, value: next})),
+    [keyed, onChange, typeName],
   )
   const onPreset = useCallback(
     (preset: ColorPreset, next: ColorValue | null) =>
       onChange(
         set({
           ...keyed,
-          _type: schemaType.name,
+          _type: typeName,
           ...(next ? {value: next} : {}),
           reference: {_type: 'reference', _ref: preset._id, _weak: true},
         }),
       ),
-    [keyed, onChange, schemaType.name],
+    [keyed, onChange, typeName],
   )
   const onClear = useCallback(() => onChange(unset()), [onChange])
 

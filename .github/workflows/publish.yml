@@ -1,0 +1,69 @@
+name: Publish
+
+# Every push to master publishes the version in package.json to npm, unless that version is
+# already on npm (so merges without a version bump do nothing). It then tags v<version> and
+# creates a GitHub release. Run it by hand from the Actions tab to retry a failed publish.
+#
+# npm trusts this workflow directly (trusted publishing): no token or 2FA code is needed.
+# Set up once on npmjs.com: package Settings > Trusted publishing > GitHub Actions,
+# repository dennisregalado/sanity-plugin-color-select, workflow publish.yml.
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Node 24 ships an npm with trusted publishing (OIDC) support.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: Check whether this version is already on npm
+        id: version
+        run: |
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [ "$(npm view "$name@$version" version 2>/dev/null)" = "$version" ]; then
+            echo "$name@$version is already published, nothing to do."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+      # The repo installs with bun (bun.lock); npm still does the publishing.
+      - if: steps.version.outputs.publish == 'true'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - if: steps.version.outputs.publish == 'true'
+        run: bun install --frozen-lockfile
+      # prepublishOnly runs lint, typecheck and the build.
+      - if: steps.version.outputs.publish == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          case "$VERSION" in
+            *-*) npm publish --provenance --access public --tag next ;;
+            *) npm publish --provenance --access public ;;
+          esac
+      - if: steps.version.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          prerelease=""
+          case "$VERSION" in *-*) prerelease="--prerelease" ;; esac
+          gh release create "v$VERSION" --generate-notes --target "$GITHUB_SHA" $prerelease

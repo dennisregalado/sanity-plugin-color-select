@@ -4,6 +4,7 @@ import {Box, Button, Card, Flex, Stack, Text, TextInput} from '@sanity/ui'
 import {Tooltip} from '@sanity/ui/tooltip'
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ElementType,
@@ -338,7 +339,9 @@ export function ColorPicker({
 
   // Hold the latest dragged color so pointer-up commits what was last shown.
   const latest = useRef(color)
-  latest.current = color
+  useLayoutEffect(() => {
+    latest.current = color
+  })
   const change = (next: Hsva) => {
     latest.current = next
     onChange(next)

@@ -111,12 +111,12 @@ export const colorPicker = definePlugin<ColorPickerPluginOptions | void>((option
   /** The `{value, reference}` color object, shared by the field and the Portable Text marks. */
   const colorObjectType = (
     name: string,
-    title: string,
+    typeTitle: string,
     extra: {icon?: React.ComponentType; annotation?: 'text' | 'highlight'} = {},
   ) =>
     defineType({
       name,
-      title,
+      title: typeTitle,
       type: 'object',
       icon: extra.icon,
       // Marks edit in a dialog: the field's own popover nests reliably there, unlike in the
@@ -137,6 +137,9 @@ export const colorPicker = definePlugin<ColorPickerPluginOptions | void>((option
           const type = context.type as ColorPickerSchemaType | undefined
           const paletteOnly = type?.options?.paletteOnly ?? defaults.paletteOnly
           if (paletteOnly && value?.value && !value.reference) return 'Pick a preset'
+          const allowed = type?.options?.presets
+          const ref = value?.reference?._ref
+          if (allowed && ref && !allowed.includes(ref)) return 'Pick one of this field’s presets'
           return true
         }),
       preview: {
@@ -190,6 +193,7 @@ export {
   fromColorValue,
   normalizeColor,
   parseColor,
+  sameColor,
   toColorValue,
   type ColorFormat,
   type ColorValue,
@@ -197,6 +201,7 @@ export {
 } from './color'
 export type {
   ColorOptions,
+  ColorPickerFieldOptions,
   ColorPickerInputProps,
   ColorPickerPluginOptions,
   ColorPickerValue,

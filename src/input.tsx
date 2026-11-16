@@ -167,6 +167,8 @@ type ColorFieldProps = {
   pickerOnly: boolean
   paletteOnly: boolean
   presetType: string
+  /** Only these preset IDs (a field's `options.presets`). */
+  presetIds?: string[]
   /** Format new presets are saved in. */
   presetFormat: ColorFormat
   readOnly?: boolean
@@ -194,6 +196,7 @@ function ColorField(props: ColorFieldProps) {
     pickerOnly,
     paletteOnly,
     presetType,
+    presetIds,
     presetFormat,
     readOnly,
     elementProps,
@@ -202,7 +205,7 @@ function ColorField(props: ColorFieldProps) {
     onPreset,
     onClear,
   } = props
-  const {colors, refresh, client} = usePresets(presetType, !pickerOnly)
+  const {colors, refresh, client} = usePresets(presetType, !pickerOnly, presetIds)
   const hasValue = Boolean(storedValue || referenceId)
 
   const stored = useMemo(() => fromColorValue(storedValue), [storedValue])
@@ -320,6 +323,7 @@ function ColorField(props: ColorFieldProps) {
   const storedHex = stored ? toHex(stored, alpha) : null
   const alreadyPreset = colors?.some((c) => sameColor(storedCss(c.color), storedHex))
   const canSave =
+    !presetIds &&
     !pickerOnly &&
     !paletteOnly &&
     !referenceId &&
@@ -552,6 +556,7 @@ export function ColorPickerInput(props: ColorPickerInputProps) {
       pickerOnly={pickerOnly}
       paletteOnly={paletteOnly}
       presetType={presetType}
+      presetIds={schemaType.options?.presets}
       presetFormat={defaults.format}
       readOnly={readOnly}
       elementProps={elementProps}
@@ -562,6 +567,8 @@ export function ColorPickerInput(props: ColorPickerInputProps) {
     />
   )
 }
+
+const noop = () => undefined
 
 /** The preset document's `color`: the same field, picker only, writing the value object itself. */
 export function PresetColorInput(
@@ -589,5 +596,3 @@ export function PresetColorInput(
     />
   )
 }
-
-const noop = () => undefined

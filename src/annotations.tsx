@@ -6,9 +6,6 @@ import type {ColorPickerValue} from './types'
 export function ColorAnnotation(props: BlockAnnotationProps & {mode: 'text' | 'highlight'}) {
   const {mode, ...rest} = props
   const css = (rest.value as ColorPickerValue | undefined)?.value?.css
-  return (
-    <span style={css ? (mode === 'text' ? {color: css} : {backgroundColor: css}) : undefined}>
-      {rest.renderDefault(rest)}
-    </span>
-  )
+  const style = mode === 'text' ? {color: css} : {backgroundColor: css}
+  return <span style={css ? style : undefined}>{rest.renderDefault(rest)}</span>
 }

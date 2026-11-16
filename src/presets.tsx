@@ -19,18 +19,27 @@ const API_VERSION = '2025-02-19'
 const keepInputFocus = (event: React.MouseEvent) => event.preventDefault()
 
 /** Every published color preset, refetched on demand (palettes are small). */
-export function usePresets(type: string, enabled = true) {
+export function usePresets(type: string, enabled = true, ids?: string[]) {
   const client = useClient({apiVersion: API_VERSION})
   const [colors, setColors] = useState<ColorPreset[] | null>(null)
+  const idsKey = ids?.join(',') ?? ''
 
   const refresh = useCallback(() => {
     if (!enabled) return
+    const only = idsKey ? idsKey.split(',') : null
     client
       .withConfig({perspective: 'published'})
-      .fetch<ColorPreset[]>('*[_type == $type] | order(title asc) {_id, title, color}', {type})
+      .fetch<ColorPreset[]>(
+        '*[_type == $type && (!defined($ids) || _id in $ids)] | order(title asc) {_id, title, color}',
+        {type, ids: only},
+      )
+      // A field's own preset list keeps its given order.
+      .then((list) =>
+        only ? [...list].sort((a, b) => only.indexOf(a._id) - only.indexOf(b._id)) : list,
+      )
       .then(setColors)
       .catch(() => setColors([]))
-  }, [client, enabled, type])
+  }, [client, enabled, idsKey, type])
 
   useEffect(refresh, [refresh])
 

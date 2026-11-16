@@ -44,8 +44,17 @@ export interface ColorPickerPluginOptions extends ColorOptions {
   presetType?: string
 }
 
+/** Field-level options: the shared ones plus `presets`. */
+export interface ColorPickerFieldOptions extends ColorOptions {
+  /**
+   * Limit the field to these preset document IDs, in this order (e.g. only dark colors). Saving
+   * new presets from the field is turned off, and other presets fail validation.
+   */
+  presets?: string[]
+}
+
 export type ColorPickerSchemaType = Omit<ObjectSchemaType, 'options'> & {
-  options?: ColorOptions
+  options?: ColorPickerFieldOptions
 }
 
 export type ColorPickerInputProps = ObjectInputProps<ColorPickerValue, ColorPickerSchemaType> & {

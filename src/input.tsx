@@ -509,7 +509,8 @@ function ColorField(props: ColorFieldProps) {
 
 /**
  * `colorPicker` fields: every change writes the resolved color to `value`; a preset also stores
- * a weak `reference`, and `value` is kept in sync with it.
+ * a weak `reference`, with `value` as a snapshot of its color taken when it was picked. Nothing is
+ * written just by opening a document.
  */
 export function ColorPickerInput(props: ColorPickerInputProps) {
   const {value, onChange, readOnly, presetType, elementProps, path, schemaType, defaults} = props
@@ -522,17 +523,6 @@ export function ColorPickerInput(props: ColorPickerInputProps) {
   const referencedColor = useReferencedPreset(referenceId, presetType)
   const storedValue = value?.value
   const keyed = useMemo(() => (value?._key ? {_key: value._key} : {}), [value?._key])
-
-  // Keep `value` current: re-snapshot a preset that changed, and rewrite values stored in another
-  // format. This patches the document when it is opened.
-  useEffect(() => {
-    if (readOnly || !value) return
-    const target = fromColorValue(referenceId ? referencedColor : storedValue)
-    if (!target) return
-    const next = toColorValue(target, format, alpha)
-    if (sameValue(storedValue, next)) return
-    onChange(set(next, ['value']))
-  }, [alpha, format, onChange, readOnly, referenceId, referencedColor, storedValue, value])
 
   const onValue = useCallback(
     (next: ColorValue) => onChange(set({...keyed, _type: schemaType.name, value: next})),

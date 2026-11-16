@@ -114,13 +114,17 @@ The Studio editor renders marked text in its color. Each mark stores the same ob
 
 A preset's `color` has the same `colorPickerValue` shape.
 
-When a field references a preset, `value` is a snapshot of the preset's color. The input refreshes it when the document is opened in the Studio and the preset has changed.
+When a field references a preset, `value` is a snapshot of the preset's color, taken when the preset was picked. Opening a document never writes to it; it's refreshed the next time an editor changes the field. If a preset's color may change after it's been picked, read the live color first:
+
+```groq
+"background": coalesce(background.reference->color.css, background.value.css)
+```
 
 ## GROQ
 
 ```groq
 *[_type == "page"][0]{
-  "background": background.value.css,
+  "background": coalesce(background.reference->color.css, background.value.css),
   "backgroundName": background.reference->title,
   "backgroundRgb": background.value.rgb,
 }

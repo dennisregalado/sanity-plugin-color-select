@@ -165,6 +165,15 @@ import {parseColor, formatColor} from 'sanity-plugin-color-select'
 formatColor(parseColor('#AE2525')!, 'oklch') // 'oklch(49.2% 0.173 26.4)'
 ```
 
+## Releasing
+
+Releases are published to npm by GitHub Actions ([`publish.yml`](.github/workflows/publish.yml)); nobody runs `npm publish` locally.
+
+1. Bump `version` in `package.json` in your PR.
+2. Merge it to `master`. The workflow runs lint, typecheck and build, publishes that version to npm with provenance, then tags `v<version>` and creates a GitHub release. Prerelease versions (e.g. `1.0.0-beta.1`) publish under the `next` dist-tag.
+
+Merges that don't change the version publish nothing. To retry a failed publish, run the workflow from the Actions tab.
+
 ## License
 
 MIT © Dennis Regalado

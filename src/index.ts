@@ -14,7 +14,7 @@ import {
 import {ColorAnnotation} from './annotations'
 import type {ColorValue} from './color'
 import {ColorFormField} from './field'
-import {colorSelectUsEnglishLocaleBundle} from './i18n'
+import {colorSelectUsEnglishLocaleBundle, translateValidation} from './i18n'
 import {ColorPickerInput, PresetColorInput} from './input'
 import {ColorSwatch} from './presets'
 import type {
@@ -140,10 +140,14 @@ export const colorPicker = definePlugin<ColorPickerPluginOptions | void>((option
         rule.custom((value: ColorPickerValue | undefined, context) => {
           const type = context.type as ColorPickerSchemaType | undefined
           const paletteOnly = type?.options?.paletteOnly ?? defaults.paletteOnly
-          if (paletteOnly && value?.value && !value.reference) return 'Pick a preset'
+          if (paletteOnly && value?.value && !value.reference) {
+            return translateValidation(context.i18n, 'validation.pick-preset')
+          }
           const allowed = type?.options?.presets
           const ref = value?.reference?._ref
-          if (allowed && ref && !allowed.includes(ref)) return 'Pick one of this field’s presets'
+          if (allowed && ref && !allowed.includes(ref)) {
+            return translateValidation(context.i18n, 'validation.pick-field-preset')
+          }
           return true
         }),
         // Weak references can outlive their preset. Studio's shared reference-existence check
@@ -157,9 +161,10 @@ export const colorPicker = definePlugin<ColorPickerPluginOptions | void>((option
             } catch {
               return true
             }
-            return value?.value
-              ? 'The linked color preset is deleted or unpublished. Frontends still get the stored color.'
-              : 'The linked color preset is deleted or unpublished.'
+            return translateValidation(
+              context.i18n,
+              value?.value ? 'validation.preset-deleted.stored-color' : 'validation.preset-deleted',
+            )
           })
           .warning(),
       ],

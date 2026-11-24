@@ -1,4 +1,4 @@
-import {defineLocaleResourceBundle, useTranslation} from 'sanity'
+import {defineLocaleResourceBundle, useTranslation, type ValidationContext} from 'sanity'
 
 import type {ColorSelectLocaleResourceKeys} from './resources'
 
@@ -38,3 +38,27 @@ export function useColorSelectTranslation(): {t: ColorSelectTranslate} {
   return {t: t as unknown as ColorSelectTranslate}
 }
 
+/**
+ * Translates a validation message. Validation runs outside React, so it gets the workspace's
+ * `i18n` from the validation context instead. That can be missing, or lack this namespace (the
+ * CLI's `sanity documents validate` only loads Studio's own `validation` strings), so a key that
+ * doesn't resolve falls back to the English string.
+ */
+export async function translateValidation(
+  i18n: ValidationContext['i18n'] | undefined,
+  key: TranslationKey,
+): Promise<string> {
+  const fullKey = `${colorSelectLocaleNamespace}:${key}`
+  if (i18n) {
+    try {
+      await i18n.loadNamespaces([colorSelectLocaleNamespace])
+      const text: unknown = i18n.t(fullKey)
+      // i18next returns the key itself when it finds no string.
+      if (typeof text === 'string' && text && text !== key && text !== fullKey) return text
+    } catch {
+      // Fall back to English below.
+    }
+  }
+  const {default: english} = await import('./resources')
+  return english[key as ColorSelectLocaleResourceKeys]
+}

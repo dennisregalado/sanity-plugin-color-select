@@ -387,9 +387,17 @@ function ColorField(props: ColorFieldProps) {
           ref={popoverRef}
           padding={1}
           radius={4}
-          style={{width: 340, maxHeight: 'inherit', overflow: 'auto'}}
+          // Focusable, so a click on its non-focusable parts moves focus here, not to the body,
+          // and the input's blur can tell it stayed inside.
+          tabIndex={-1}
+          style={{width: 340, maxHeight: 'inherit', overflow: 'auto', outline: 'none'}}
           onKeyDown={(event) => {
             if (event.key === 'Escape') close()
+          }}
+          onBlur={(event) => {
+            // Tabbing out of the popover closes it too, unless focus goes back to the field.
+            const next = event.relatedTarget as Node | null
+            if (next && !event.currentTarget.contains(next) && !container?.contains(next)) close()
           }}
         >
           {query ? (
@@ -517,10 +525,9 @@ function ColorField(props: ColorFieldProps) {
               return
             }
             commitTyped()
-            // Leaving the field (not into the popover) ends Replace and shows the reference again.
-            if (!popoverRef.current?.contains(event.relatedTarget as Node | null)) {
-              setReplacingId(null)
-            }
+            // Tabbing or clicking away closes the popover (and ends Replace). Focus moving into it,
+            // like the picker's sliders and inputs, keeps it open.
+            if (!popoverRef.current?.contains(event.relatedTarget as Node | null)) close()
           }}
           onKeyDown={(event) => {
             if (event.key === 'Enter') {

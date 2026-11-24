@@ -33,8 +33,8 @@ const channels = (name: string, title: string, keys: string[]) =>
   })
 
 /**
- * Registers a `colorPicker` field type, its `colorPickerValue` object and a preset document
- * type (`colorPreset` by default).
+ * Registers a `colorPicker` field type, its `colorPickerValue` object, a preset document type
+ * (`colorPreset` by default) and the `colorText` and `colorHighlight` Portable Text marks.
  *
  * The input always writes the resolved color to `value` (`css`, `hex`, `alpha`, `rgb`, `hsl`,
  * `hsv`, `oklch`), and also a weak `reference` when it came from a preset, so GROQ can read

@@ -311,8 +311,8 @@ function ChannelInput({
 }
 
 /**
- * Saturation/value area, swatch beside hue (and alpha) sliders, then the color as HEX, RGB or
- * HSL inputs with eyedropper, mode switch and copy. `onChange` fires live while dragging;
+ * Saturation/value area, swatch beside hue (and alpha) sliders, then the color as HEX, RGB, HSL
+ * or OKLCH inputs with eyedropper, mode switch and copy. `onChange` fires live while dragging;
  * `onCommit` once a gesture or edit ends; `onCancel` when a drag is cancelled, to drop the live color.
  */
 export function ColorPicker({

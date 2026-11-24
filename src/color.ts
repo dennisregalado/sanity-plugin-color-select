@@ -170,18 +170,18 @@ export function toHex(color: Hsva, alpha = false): string {
   return `#${hex2(r)}${hex2(g)}${hex2(b)}${aa}`.toUpperCase()
 }
 
-export function toRgb(color: Hsva, alpha = false): string {
+function toRgb(color: Hsva, alpha = false): string {
   const {r, g, b, a} = hsvaToRgba(color)
   return alpha && a < 1 ? `rgb(${r} ${g} ${b} / ${round(a, 2)})` : `rgb(${r} ${g} ${b})`
 }
 
-export function toHsl(color: Hsva, alpha = false): string {
+function toHsl(color: Hsva, alpha = false): string {
   const {h, s, l, a} = hsvaToHsla(color)
   const body = `${Math.round(h)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`
   return alpha && a < 1 ? `hsl(${body} / ${round(a, 2)})` : `hsl(${body})`
 }
 
-export function toOklch(color: Hsva, alpha = false): string {
+function toOklch(color: Hsva, alpha = false): string {
   const {l, c, h, a} = hsvaToOklcha(color)
   const body = `${round(l * 100, 1)}% ${round(c, 3)} ${round(h, 1)}`
   return alpha && a < 1 ? `oklch(${body} / ${round(a, 2)})` : `oklch(${body})`

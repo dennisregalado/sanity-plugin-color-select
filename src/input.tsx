@@ -76,12 +76,26 @@ function FieldAction({
   )
 }
 
-/** Live color of the referenced preset (draft first, then published). */
-function useReferencedPreset(id: string | undefined, type: string) {
-  const state = useEditState(id ?? '', type)
-  if (!id) return null
+type LiveColor = {id: string; color: StoredColor}
+
+/**
+ * Reports the live color of the referenced preset (draft first, then published). Rendered only
+ * while a field has a reference, so empty fields don't listen to a document.
+ */
+function ReferencedPreset({
+  id,
+  type,
+  onColor,
+}: {
+  id: string
+  type: string
+  onColor: (live: LiveColor) => void
+}) {
+  const state = useEditState(id, type)
   const doc = (state.draft ?? state.published) as {color?: StoredColor} | null
-  return doc?.color ?? null
+  const color = doc?.color ?? null
+  useEffect(() => onColor({id, color}), [id, color, onColor])
+  return null
 }
 
 /** Preset reference, shown like a native reference input (and the link picker's). */
@@ -528,7 +542,8 @@ export function ColorPickerInput(props: ColorPickerInputProps) {
   const paletteOnly = !pickerOnly && (schemaType.options?.paletteOnly ?? defaults.paletteOnly)
 
   const referenceId = value?.reference?._ref
-  const referencedColor = useReferencedPreset(referenceId, presetType)
+  const [live, setLive] = useState<LiveColor | null>(null)
+  const referencedColor = referenceId && live?.id === referenceId ? live.color : null
   const storedValue = value?.value
   const key = value?._key
   const keyed = useMemo(() => (key ? {_key: key} : {}), [key])
@@ -553,24 +568,27 @@ export function ColorPickerInput(props: ColorPickerInputProps) {
   const onClear = useCallback(() => onChange(unset()), [onChange])
 
   return (
-    <ColorField
-      colorValue={storedValue}
-      referenceId={referenceId}
-      referencedColor={referencedColor}
-      format={format}
-      alpha={alpha}
-      pickerOnly={pickerOnly}
-      paletteOnly={paletteOnly}
-      presetType={presetType}
-      presetIds={schemaType.options?.presets}
-      presetFormat={defaults.format}
-      readOnly={readOnly}
-      elementProps={elementProps}
-      path={path}
-      onValue={onValue}
-      onPreset={onPreset}
-      onClear={onClear}
-    />
+    <>
+      {referenceId && <ReferencedPreset id={referenceId} type={presetType} onColor={setLive} />}
+      <ColorField
+        colorValue={storedValue}
+        referenceId={referenceId}
+        referencedColor={referencedColor}
+        format={format}
+        alpha={alpha}
+        pickerOnly={pickerOnly}
+        paletteOnly={paletteOnly}
+        presetType={presetType}
+        presetIds={schemaType.options?.presets}
+        presetFormat={defaults.format}
+        readOnly={readOnly}
+        elementProps={elementProps}
+        path={path}
+        onValue={onValue}
+        onPreset={onPreset}
+        onClear={onClear}
+      />
+    </>
   )
 }
 

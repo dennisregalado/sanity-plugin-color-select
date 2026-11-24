@@ -6,7 +6,7 @@ A Sanity Studio color field built like a link picker: one input, a popover, and 
 - **Picker**: saturation/brightness area, hue and opacity sliders, HEX / RGB / HSL / OKLCH inputs, an eyedropper (Chromium) and copy to clipboard.
 - **Search or paste**: type a preset's title or hex to search presets, or paste any CSS color (`#AE2525`, `rgb(…)`, `hsl(…)`, `oklch(…)`) to apply it immediately.
 - **Save as preset** inline: turn the current color into a preset right from the field, then name it.
-- **Modes**: presets only, picker only, or both.
+- **Modes**: presets only, picker only, or both. Picker-only fields remember your recently used colors.
 - **Portable Text** text-color and highlight marks with the same UI.
 - **A GROQ-friendly value**: `css`, `hex`, `alpha`, `rgb`, `hsl`, `hsv` and `oklch`, written by the Studio so your frontend doesn't convert anything.
 
@@ -51,6 +51,7 @@ colorPicker({
   alpha: true,
   paletteOnly: false,
   pickerOnly: false,
+  recentColors: true,
   presetType: 'colorPreset',
 })
 
@@ -61,14 +62,15 @@ defineField({
 })
 ```
 
-| Option        | Default         |                                                                                                                                                             |
-| ------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `format`      | `'hex'`         | How `value.css` is written, and the picker's starting input mode.                                                                                           |
-| `alpha`       | `true`          | Show the opacity slider and keep alpha in the value.                                                                                                        |
-| `paletteOnly` | `false`         | Only presets: no picker, no custom colors, no saving. A custom value fails validation.                                                                      |
-| `pickerOnly`  | `false`         | Only the picker: no presets, search, saving or references. Wins over `paletteOnly`.                                                                         |
-| `presetType`  | `'colorPreset'` | Name of the preset document type (plugin-level only).                                                                                                       |
-| `presets`     | —               | Field-level only. Limit the field to these preset document IDs, in this order. Saving new presets from the field is off, and other presets fail validation. |
+| Option         | Default         |                                                                                                                                                                        |
+| -------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `format`       | `'hex'`         | How `value.css` is written, and the picker's starting input mode.                                                                                                      |
+| `alpha`        | `true`          | Show the opacity slider and keep alpha in the value.                                                                                                                   |
+| `paletteOnly`  | `false`         | Only presets: no picker, no custom colors, no saving. A custom value fails validation.                                                                                 |
+| `pickerOnly`   | `false`         | Only the picker: no presets, search, saving or references. Wins over `paletteOnly`.                                                                                    |
+| `recentColors` | `true`          | Picker-only fields: show the last 8 colors this user applied in any picker-only field, under the picker. Kept in the browser's local storage, per project and dataset. |
+| `presetType`   | `'colorPreset'` | Name of the preset document type (plugin-level only).                                                                                                                  |
+| `presets`      | —               | Field-level only. Limit the field to these preset document IDs, in this order. Saving new presets from the field is off, and other presets fail validation.            |
 
 Limit a field to some presets, e.g. backgrounds that must stay dark under light text:
 

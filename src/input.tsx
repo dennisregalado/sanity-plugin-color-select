@@ -23,6 +23,7 @@ import {assignRefs, nextTabbable, tabbables} from './dom'
 import {useListNavigation} from './listNavigation'
 import {ColorPicker} from './picker'
 import {ColorSwatch, filterPresets, PresetList, PresetResults, usePresets} from './presets'
+import {RecentColors, useRecentColors} from './recent'
 import {type LiveColor, PresetReference, ReferencedPreset} from './reference'
 import type {ColorOptions, ColorPickerInputProps, ColorPreset} from './types'
 import {TooltipButton} from './ui'
@@ -44,6 +45,8 @@ type ColorFieldInputProps = {
   alpha: boolean
   pickerOnly: boolean
   paletteOnly: boolean
+  /** Picker-only: show and record recently used colors. */
+  recentColors: boolean
   presetType: string
   /** Only these preset IDs (a field's `options.presets`). */
   presetIds?: string[]
@@ -73,6 +76,7 @@ function ColorFieldInput(props: ColorFieldInputProps): JSX.Element {
     alpha,
     pickerOnly,
     paletteOnly,
+    recentColors,
     presetType,
     presetIds,
     presetFormat,
@@ -84,6 +88,7 @@ function ColorFieldInput(props: ColorFieldInputProps): JSX.Element {
     onClear,
   } = props
   const {colors, refresh, client} = usePresets(presetType, !pickerOnly, presetIds)
+  const {recent, add: addRecent} = useRecentColors(pickerOnly && recentColors)
   const hasValue = Boolean(storedValue || referenceId)
 
   // Saving publishes a new preset (`client.create`, a non-draft id), so check `create` on one.
@@ -135,10 +140,12 @@ function ColorFieldInput(props: ColorFieldInputProps): JSX.Element {
     (color: Hsva) => {
       if (paletteOnly || readOnly) return
       const next = toColorValue(color, format, alpha)
+      // Every committed manual color (picker, typed, pasted, eyedropper); live drags never get here.
+      addRecent(alpha ? color : {...color, a: 1})
       if (!referenceId && sameValue(storedValue, next)) return
       onValue(next)
     },
-    [alpha, format, onValue, paletteOnly, readOnly, referenceId, storedValue],
+    [addRecent, alpha, format, onValue, paletteOnly, readOnly, referenceId, storedValue],
   )
 
   const setPreset = useCallback(
@@ -372,6 +379,18 @@ function ColorFieldInput(props: ColorFieldInputProps): JSX.Element {
     [close, container],
   )
 
+  // A recent color applies like a preset pick: the popover closes and focus returns to the input.
+  const pickRecent = useCallback(
+    (color: Hsva) => {
+      setDragging(null)
+      setTyped(null)
+      setManual(color)
+      close()
+      setRestoreRequest((n) => n + 1)
+    },
+    [close, setManual],
+  )
+
   const cancelDrag = useCallback(() => setDragging(null), [])
   const commitPicked = useCallback(
     (color: Hsva) => {
@@ -435,6 +454,15 @@ function ColorFieldInput(props: ColorFieldInputProps): JSX.Element {
                     onCommit={commitPicked}
                   />
                 </Box>
+              )}
+              {pickerOnly && (
+                <RecentColors
+                  colors={recent}
+                  format={format}
+                  alpha={alpha}
+                  current={stored}
+                  onSelect={pickRecent}
+                />
               )}
               {!pickerOnly && (
                 <PresetList
@@ -685,6 +713,7 @@ export function ColorPickerInput(props: ColorPickerInputProps): JSX.Element {
   const format = schemaType.options?.format ?? defaults.format
   const alpha = schemaType.options?.alpha ?? defaults.alpha
   const pickerOnly = schemaType.options?.pickerOnly ?? defaults.pickerOnly
+  const recentColors = schemaType.options?.recentColors ?? defaults.recentColors
   const paletteOnly = !pickerOnly && (schemaType.options?.paletteOnly ?? defaults.paletteOnly)
 
   const referenceId = value?.reference?._ref
@@ -724,6 +753,7 @@ export function ColorPickerInput(props: ColorPickerInputProps): JSX.Element {
         alpha={alpha}
         pickerOnly={pickerOnly}
         paletteOnly={paletteOnly}
+        recentColors={recentColors}
         presetType={presetType}
         presetIds={schemaType.options?.presets}
         presetFormat={defaults.format}
@@ -755,6 +785,7 @@ export function PresetColorInput(
       alpha={defaults.alpha}
       pickerOnly
       paletteOnly={false}
+      recentColors={defaults.recentColors}
       presetType={presetType}
       presetFormat={defaults.format}
       readOnly={readOnly}

@@ -56,6 +56,7 @@ export const colorPicker = definePlugin<ColorPickerPluginOptions | void>((option
     alpha: options?.alpha ?? true,
     paletteOnly: options?.paletteOnly ?? false,
     pickerOnly: options?.pickerOnly ?? false,
+    recentColors: options?.recentColors ?? true,
   }
 
   const colorPreset = defineType({

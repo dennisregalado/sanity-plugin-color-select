@@ -1,6 +1,12 @@
 import {Box, Button, Card, Flex, Spinner, Stack, Text} from '@sanity/ui'
-import React, {useCallback, useEffect, useMemo, useState} from 'react'
-import {SanityDefaultPreview, useClient} from 'sanity'
+import React, {useCallback, useMemo, useSyncExternalStore} from 'react'
+import {
+  SanityDefaultPreview,
+  useClient,
+  useDocumentStore,
+  type DocumentStore,
+  type SanityClient,
+} from 'sanity'
 
 import {checkerboard, fromColorValue, storedCss, toHex, type StoredColor} from './color'
 
@@ -18,30 +24,97 @@ const API_VERSION = '2025-02-19'
  */
 const keepInputFocus = (event: React.MouseEvent) => event.preventDefault()
 
-/** Every published color preset, refetched on demand (palettes are small). */
+const PRESET_FIELDS = '| order(title asc) {_id, title, color}'
+
+type PresetStore = {
+  get: () => ColorPreset[] | null
+  subscribe: (onChange: () => void) => () => void
+  refetch: () => void
+}
+
+// One store per document store (workspace) and (type, ids), shared by every field on the page.
+const stores = new WeakMap<DocumentStore, Map<string, PresetStore>>()
+
+function presetStore(
+  documentStore: DocumentStore,
+  client: SanityClient,
+  type: string,
+  idsKey: string,
+): PresetStore {
+  const byKey = stores.get(documentStore) ?? new Map<string, PresetStore>()
+  stores.set(documentStore, byKey)
+  const key = `${type}|${idsKey}`
+  const existing = byKey.get(key)
+  if (existing) return existing
+
+  const only = idsKey ? idsKey.split(',') : null
+  const query = `*[_type == $type${only ? ' && _id in $ids' : ''}] ${PRESET_FIELDS}`
+  const params: Record<string, string | string[]> = only ? {type, ids: only} : {type}
+  let value: ColorPreset[] | null = null
+  const listeners = new Set<() => void>()
+  let subscription: {unsubscribe: () => void} | null = null
+
+  const emit = (list: ColorPreset[]) => {
+    // A field's own preset list keeps its given order.
+    value = only ? [...list].sort((a, b) => only.indexOf(a._id) - only.indexOf(b._id)) : list
+    listeners.forEach((listener) => listener())
+  }
+
+  const store: PresetStore = {
+    get: () => value,
+    subscribe: (onChange) => {
+      listeners.add(onChange)
+      // The first field to mount starts the listener; the last to unmount stops it (the list
+      // is kept, so a field mounted later shows it while the listener refetches).
+      if (!subscription) {
+        subscription = documentStore
+          .listenQuery(query, params, {
+            apiVersion: API_VERSION,
+            perspective: 'published',
+            tag: 'color-select.presets',
+            throttleTime: 300,
+            transitions: ['update', 'appear', 'disappear'],
+          })
+          .subscribe({next: emit, error: () => emit([])})
+      }
+      return () => {
+        listeners.delete(onChange)
+        if (listeners.size === 0) {
+          subscription?.unsubscribe()
+          subscription = null
+        }
+      }
+    },
+    // Right after the field's own save, without waiting for the listener's throttle.
+    refetch: () => {
+      client
+        .withConfig({perspective: 'published'})
+        .fetch<ColorPreset[]>(query, params)
+        .then(emit)
+        .catch(() => undefined)
+    },
+  }
+  byKey.set(key, store)
+  return store
+}
+
+const noPresets = () => null
+const noSubscription = () => () => undefined
+
+/**
+ * Every published color preset, kept live: presets created or edited elsewhere (another pane,
+ * another user) show up without reopening the document.
+ */
 export function usePresets(type: string, enabled = true, ids?: string[]) {
   const client = useClient({apiVersion: API_VERSION})
-  const [colors, setColors] = useState<ColorPreset[] | null>(null)
+  const documentStore = useDocumentStore()
   const idsKey = ids?.join(',') ?? ''
-
-  const refresh = useCallback(() => {
-    if (!enabled) return
-    const only = idsKey ? idsKey.split(',') : null
-    client
-      .withConfig({perspective: 'published'})
-      .fetch<ColorPreset[]>(
-        '*[_type == $type && (!defined($ids) || _id in $ids)] | order(title asc) {_id, title, color}',
-        {type, ids: only},
-      )
-      // A field's own preset list keeps its given order.
-      .then((list) =>
-        only ? [...list].sort((a, b) => only.indexOf(a._id) - only.indexOf(b._id)) : list,
-      )
-      .then(setColors)
-      .catch(() => setColors([]))
-  }, [client, enabled, idsKey, type])
-
-  useEffect(refresh, [refresh])
+  const store = useMemo(
+    () => (enabled ? presetStore(documentStore, client, type, idsKey) : null),
+    [client, documentStore, enabled, idsKey, type],
+  )
+  const colors = useSyncExternalStore(store?.subscribe ?? noSubscription, store?.get ?? noPresets)
+  const refresh = useCallback(() => store?.refetch(), [store])
 
   return {colors, refresh, client}
 }

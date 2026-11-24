@@ -1,5 +1,5 @@
 import {Box, Button, Card, Flex, Spinner, Stack, Text} from '@sanity/ui'
-import React, {useCallback, useMemo, useSyncExternalStore} from 'react'
+import React, {useCallback, useMemo, useSyncExternalStore, type ReactNode} from 'react'
 import {
   SanityDefaultPreview,
   useClient,
@@ -147,13 +147,58 @@ export function ColorSwatch({color, size = 16}: {color?: string | null; size?: n
   )
 }
 
+/** Keyboard state shared by the popover's lists: the active row and the ids ARIA points at. */
+export type ListNavigation = {
+  listboxId: string
+  /** Index into the popover's rows (the "Use <color>" row first, when shown). */
+  activeIndex: number
+  optionId: (index: number) => string
+}
+
+/** A list row: a bleed button with the hover look while it's the keyboard's active row. */
+function OptionButton({
+  index,
+  nav,
+  selected,
+  onSelect,
+  children,
+}: {
+  index: number
+  nav: ListNavigation
+  selected?: boolean
+  onSelect: () => void
+  children: ReactNode
+}) {
+  const active = index === nav.activeIndex
+  return (
+    <Button
+      id={nav.optionId(index)}
+      role="option"
+      aria-selected={active}
+      // Not a tab stop: the input moves through rows with the arrow keys.
+      tabIndex={-1}
+      data-hovered={active ? '' : undefined}
+      mode="bleed"
+      width="fill"
+      padding={1}
+      selected={selected}
+      onMouseDown={keepInputFocus}
+      onClick={onSelect}
+    >
+      {children}
+    </Button>
+  )
+}
+
 export function PresetList({
   colors,
   selectedId,
+  nav,
   onSelect,
 }: {
   colors: ColorPreset[] | null
   selectedId?: string
+  nav: ListNavigation
   onSelect: (color: ColorPreset) => void
 }) {
   return (
@@ -176,16 +221,14 @@ export function PresetList({
         </Box>
       )}
       {colors && colors.length > 0 && (
-        <Stack gap={1}>
-          {colors.map((c) => (
-            <Button
+        <Stack gap={1} id={nav.listboxId} role="listbox" aria-label="Presets">
+          {colors.map((c, index) => (
+            <OptionButton
               key={c._id}
-              mode="bleed"
-              width="fill"
-              padding={1}
+              index={index}
+              nav={nav}
               selected={c._id === selectedId}
-              onMouseDown={keepInputFocus}
-              onClick={() => onSelect(c)}
+              onSelect={() => onSelect(c)}
             >
               <SanityDefaultPreview
                 layout="compact"
@@ -193,7 +236,7 @@ export function PresetList({
                 subtitle={storedCss(c.color) || undefined}
                 media={<ColorSwatch color={storedCss(c.color)} size="100%" />}
               />
-            </Button>
+            </OptionButton>
           ))}
         </Stack>
       )}
@@ -207,61 +250,53 @@ export function PresetList({
  */
 export function PresetResults({
   colors,
+  matches,
   query,
   typed,
+  nav,
   onSelect,
 }: {
   colors: ColorPreset[] | null
+  matches: ColorPreset[]
   query: string
   typed?: {label: string; css: string; onSelect: () => void}
+  nav: ListNavigation
   onSelect: (color: ColorPreset) => void
 }) {
-  const matches = useMemo(() => (colors ? filterPresets(colors, query) : []), [colors, query])
   const label =
     colors === null
       ? 'Searching...'
       : `${matches.length} ${matches.length === 1 ? 'result' : 'results'}`
+  const offset = typed ? 1 : 0
 
   return (
-    <Stack gap={1}>
+    <Stack gap={1} id={nav.listboxId} role="listbox" aria-label="Colors">
       {typed && (
-        <Button
-          mode="bleed"
-          width="fill"
-          padding={1}
-          onMouseDown={keepInputFocus}
-          onClick={() => typed.onSelect()}
-        >
+        <OptionButton index={0} nav={nav} onSelect={() => typed.onSelect()}>
           <SanityDefaultPreview
             layout="default"
             title={`Use ${typed.label}`}
             media={<ColorSwatch color={typed.css} size="100%" />}
           />
-        </Button>
+        </OptionButton>
       )}
-      <Box paddingX={2} paddingY={3}>
+      {/* The group's label carries the count for screen readers. */}
+      <Box paddingX={2} paddingY={3} aria-hidden>
         <Text size={1} weight="medium">
           {label}
         </Text>
       </Box>
       {matches.length > 0 ? (
-        <Stack gap={1} style={{maxHeight: 390, overflowY: 'auto'}}>
-          {matches.map((c) => (
-            <Button
-              key={c._id}
-              mode="bleed"
-              width="fill"
-              padding={1}
-              onMouseDown={keepInputFocus}
-              onClick={() => onSelect(c)}
-            >
+        <Stack gap={1} role="group" aria-label={label} style={{maxHeight: 390, overflowY: 'auto'}}>
+          {matches.map((c, index) => (
+            <OptionButton key={c._id} index={index + offset} nav={nav} onSelect={() => onSelect(c)}>
               <SanityDefaultPreview
                 layout="default"
                 title={c.title || 'Untitled'}
                 subtitle={storedCss(c.color) || undefined}
                 media={<ColorSwatch color={storedCss(c.color)} size="100%" />}
               />
-            </Button>
+            </OptionButton>
           ))}
         </Stack>
       ) : (

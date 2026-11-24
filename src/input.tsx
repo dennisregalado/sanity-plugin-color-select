@@ -2,6 +2,7 @@ import {BookmarkIcon} from '@sanity/icons/Bookmark'
 import {EditIcon} from '@sanity/icons/Edit'
 import {Box, Button, Card, Flex, Stack, Text, TextInput, useClickOutsideEvent} from '@sanity/ui'
 import {Popover} from '@sanity/ui/popover'
+import {useToast} from '@sanity/ui/toast'
 import {Tooltip} from '@sanity/ui/tooltip'
 import React, {useCallback, useEffect, useMemo, useRef, useState, type ReactNode} from 'react'
 import {
@@ -231,6 +232,7 @@ function ColorField(props: ColorFieldProps) {
     onClear,
   } = props
   const {colors, refresh, client} = usePresets(presetType, !pickerOnly, presetIds)
+  const toast = useToast()
   const hasValue = Boolean(storedValue || referenceId)
 
   const stored = useMemo(() => fromColorValue(storedValue), [storedValue])
@@ -351,6 +353,19 @@ function ColorField(props: ColorFieldProps) {
   // The preset created by the save button; naming mode only renames it.
   const createdRef = useRef<Promise<string> | null>(null)
 
+  const stopNaming = () => {
+    namingRef.current = false
+    setNaming(null)
+  }
+
+  const saveFailed = (title: string, error: unknown) => {
+    toast.push({
+      status: 'error',
+      title,
+      description: error instanceof Error ? error.message : String(error),
+    })
+  }
+
   // Save: create the preset right away, titled with its hex, and reference it. The field
   // then switches to "Name the color"; blur or Enter renames it, empty keeps the hex title.
   const startNaming = () => {
@@ -361,16 +376,21 @@ function ColorField(props: ColorFieldProps) {
     setNaming({name: '', color: shown})
     close()
     setFocusRequest((n) => n + 1)
-    createdRef.current = client.create({_type: presetType, title: hex, color}).then((created) => {
+    const created = client.create({_type: presetType, title: hex, color}).then((doc) => {
       refresh()
-      setPreset({_id: created._id, title: hex, color})
-      return created._id
+      setPreset({_id: doc._id, title: hex, color})
+      return doc._id
     })
-  }
-
-  const stopNaming = () => {
-    namingRef.current = false
-    setNaming(null)
+    createdRef.current = created
+    // Failed (no permission, network): leave naming mode and keep the color as a manual value.
+    created.catch((error: unknown) => {
+      if (createdRef.current === created) {
+        createdRef.current = null
+        stopNaming()
+      }
+      setManual(shown)
+      saveFailed('Could not save the preset', error)
+    })
   }
 
   const commitNaming = async () => {
@@ -380,9 +400,19 @@ function ColorField(props: ColorFieldProps) {
     stopNaming()
     createdRef.current = null
     if (!title || !created) return
-    const id = await created
-    await client.patch(id).set({title}).commit()
-    refresh()
+    let id: string
+    try {
+      id = await created
+    } catch {
+      return // Reported by `startNaming`.
+    }
+    try {
+      await client.patch(id).set({title}).commit()
+      refresh()
+    } catch (error) {
+      // The preset exists, titled with its hex, and the field references it.
+      saveFailed('Could not rename the preset', error)
+    }
   }
 
   const storedHex = stored ? toHex(stored, alpha) : null

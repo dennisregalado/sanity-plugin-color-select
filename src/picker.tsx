@@ -31,7 +31,8 @@ import {
 } from './color'
 
 const THUMB = 20
-const BLACK: Hsva = {h: 0, s: 0, v: 0, a: 1}
+// An empty field starts at full saturation and brightness, so a hue or opacity drag shows a change.
+const START: Hsva = {h: 0, s: 1, v: 1, a: 1}
 
 function Thumb({x, y, color}: {x: string; y: string; color: string}) {
   return (
@@ -326,7 +327,7 @@ export function ColorPicker({
   onChange: (color: Hsva) => void
   onCommit: (color: Hsva) => void
 }) {
-  const color = value ?? BLACK
+  const color = value ?? START
   const [mode, setMode] = useState<ColorFormat>(format)
   const [hexDraft, setHexDraft] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)

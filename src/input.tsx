@@ -103,11 +103,13 @@ function PresetReference({
   documentId,
   documentType,
   path,
+  readOnly,
   onReplace,
 }: {
   documentId: string
   documentType: string
   path: Path
+  readOnly?: boolean
   onReplace: () => void
 }) {
   const schemaType = useSchema().get(documentType)
@@ -163,6 +165,7 @@ function PresetReference({
             aria-label="Replace preset"
             icon={EditIcon}
             mode="bleed"
+            disabled={readOnly}
             style={{clipPath: 'inset(3px round 2px)'}}
             onClick={onReplace}
           />
@@ -272,31 +275,33 @@ function ColorField(props: ColorFieldProps) {
 
   const setManual = useCallback(
     (color: Hsva) => {
-      if (paletteOnly) return
+      if (paletteOnly || readOnly) return
       const next = toColorValue(color, format, alpha)
       if (!referenceId && sameValue(storedValue, next)) return
       onValue(next)
     },
-    [alpha, format, onValue, paletteOnly, referenceId, storedValue],
+    [alpha, format, onValue, paletteOnly, readOnly, referenceId, storedValue],
   )
 
   const setPreset = useCallback(
     (preset: ColorPreset) => {
+      if (readOnly) return
       const color = fromColorValue(preset.color)
       onPreset(preset, color ? toColorValue(color, format, alpha) : null)
       close()
     },
-    [alpha, close, format, onPreset],
+    [alpha, close, format, onPreset, readOnly],
   )
 
   const commitTyped = () => {
     if (typedColor) setManual(typedColor)
-    else if (typed !== null && !typed.trim() && hasValue) onClear()
+    else if (!readOnly && typed !== null && !typed.trim() && hasValue) onClear()
     setTyped(null)
   }
 
   // Pencil: clear the value (or reference) and reopen the popover to pick anew.
   const edit = () => {
+    if (readOnly) return
     setTyped(null)
     setDragging(null)
     if (hasValue) onClear()
@@ -310,7 +315,7 @@ function ColorField(props: ColorFieldProps) {
   // Save: create the preset right away, titled with its hex, and reference it. The field
   // then switches to "Name the color"; blur or Enter renames it, empty keeps the hex title.
   const startNaming = () => {
-    if (!shown) return
+    if (!shown || readOnly) return
     const hex = toHex(shown, alpha)
     const color = toColorValue(shown, presetFormat, alpha)
     namingRef.current = true
@@ -414,6 +419,7 @@ function ColorField(props: ColorFieldProps) {
    * Palette-only fields search presets for it instead. Returns whether it was handled.
    */
   const pasteColor = (text: string): boolean => {
+    if (readOnly) return false
     const trimmed = text.trim()
     const color = parseColor(trimmed)
     if (!color) return false
@@ -442,6 +448,7 @@ function ColorField(props: ColorFieldProps) {
             documentId={referenceId}
             documentType={presetType}
             path={path}
+            readOnly={readOnly}
             onReplace={edit}
           />
         </Box>

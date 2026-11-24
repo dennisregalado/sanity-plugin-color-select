@@ -13,7 +13,7 @@ import type {ListNavigation} from './listNavigation'
 import type {ColorPreset} from './types'
 import {keepFocus} from './ui'
 
-const API_VERSION = '2025-02-19'
+export const API_VERSION = '2025-02-19'
 
 /** A preset's hex without `#`, lowercase, for prefix search (`6f4e` finds `#6F4E37`). */
 const searchableHex = (color: StoredColor) => {

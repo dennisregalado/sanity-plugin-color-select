@@ -38,6 +38,11 @@ export interface ColorOptions {
   paletteOnly?: boolean
   /** Only the picker: no presets, search, saving or references. Defaults to `false`. */
   pickerOnly?: boolean
+  /**
+   * Picker-only fields: show the colors this user last applied in any picker-only field (kept in
+   * this browser, per project and dataset). Defaults to `true`.
+   */
+  recentColors?: boolean
 }
 
 /** Options for the plugin (argument to `colorPicker`). */

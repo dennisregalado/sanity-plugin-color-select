@@ -9,14 +9,15 @@ import {
 } from 'sanity'
 
 import {checkerboard, fromColorValue, storedCss, toHex, type StoredColor} from './color'
+import type {ColorPreset} from './types'
 
+const API_VERSION = '2025-02-19'
+
+/** A preset's hex without `#`, lowercase, for prefix search (`6f4e` finds `#6F4E37`). */
 const searchableHex = (color: StoredColor) => {
   const parsed = fromColorValue(color)
   return parsed ? toHex(parsed, true).slice(1).toLowerCase() : ''
 }
-import type {ColorPreset} from './types'
-
-const API_VERSION = '2025-02-19'
 
 /**
  * Like the link picker: keep focus in the field while clicking inside the popover. Otherwise the

@@ -157,6 +157,53 @@ content[]{
 }
 ```
 
+## Translations
+
+The field's UI goes through Sanity's i18n API, under the `color-select` namespace. The plugin ships English (`en-US`), which is also the fallback for any key a locale leaves out. That covers placeholders, buttons, tooltips, `aria-label`s, toasts, the preset list and the plugin's validation messages.
+
+To translate it, add a resource bundle for that namespace in your Studio config (or your own plugin). The locale itself has to be available too, for example from [`@sanity/locale-nb-no`](https://github.com/sanity-io/locales):
+
+```ts
+// sanity.config.ts
+import {nbNOLocale} from '@sanity/locale-nb-no'
+import {defineConfig, defineLocaleResourceBundle} from 'sanity'
+import {
+  colorPicker,
+  colorSelectLocaleNamespace,
+  type ColorSelectLocaleResourceKeys,
+} from 'sanity-plugin-color-select'
+
+const colorSelectNorwegian = defineLocaleResourceBundle({
+  locale: 'nb-NO',
+  namespace: colorSelectLocaleNamespace, // 'color-select'
+  // Or `resources: () => import('./color-select.nb-NO')` to load it only when needed.
+  resources: {
+    'input.placeholder': 'Søk eller lim inn en farge',
+    'presets.heading': 'Forhåndsinnstillinger',
+    // Plurals use i18next's suffixes: `_one`, `_other`, …
+    'presets.results_one': '{{count}} treff',
+    'presets.results_other': '{{count}} treff',
+    'reference.changed': 'Forhåndsinnstillingen er endret',
+    'validation.pick-preset': 'Velg en forhåndsinnstilling',
+    // …
+  } satisfies Partial<Record<ColorSelectLocaleResourceKeys, string>>,
+})
+
+export default defineConfig({
+  // ...
+  plugins: [colorPicker(), nbNOLocale()],
+  i18n: {bundles: [colorSelectNorwegian]},
+})
+```
+
+Every key, with a comment on where it's shown, is in [`src/i18n/resources.ts`](src/i18n/resources.ts). `ColorSelectLocaleResourceKeys` lets TypeScript check the keys. `{{…}}` values are filled in by the field. Colors arrive already formatted (`#FF5733`), and `{{format}}` is HEX, RGB, HSL or OKLCH.
+
+**Not translated:**
+
+- **Schema titles** (the `Color preset` document type, its `Title` and `Color` fields, the `Text color` and `Highlight` marks, the `colorPickerValue` fields) and the preset title's `e.g. Charcoal` placeholder. Sanity schema titles are plain strings, not bundle keys, so they stay English. Your own fields' titles are yours to set as usual.
+- **Fallback titles in schema previews**: `Untitled` for a preset without a title and `No color` for an empty mark, in document lists and search. A preview's `prepare` returns a plain string outside React, so it has no translation function. The same fallbacks inside the field are translated.
+- **Format names and channel letters as values**: HEX, RGB, HSL, OKLCH and the color values themselves. The channel input labels (R, G, B, A, H, S, L, C) are keys (`picker.channel.*`), but they sit under narrow inputs, so keep them short.
+
 ## Utilities
 
 The color helpers the input uses are exported for frontends that need them:

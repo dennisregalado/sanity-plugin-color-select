@@ -88,7 +88,7 @@ The plugin registers a `colorPreset` document type with a `title` and a `color`.
 S.documentTypeListItem('colorPreset').title('Color presets')
 ```
 
-Editors can also create presets from any color field: pick a color, click **Save as preset**, and name it.
+Editors can also create presets from any color field: pick a color, click **Save as preset**, and name it (Escape cancels and removes it). Saving publishes the preset immediately: it's created with `client.create`, skipping drafts and releases. The button only shows for users allowed to create presets.
 
 ### Portable Text marks
 
@@ -127,7 +127,7 @@ The Studio editor renders marked text in its color. Each mark stores the same ob
 
 A preset's `color` has the same `colorPickerValue` shape.
 
-When a field references a preset, `value` is a snapshot of the preset's color, taken when the preset was picked. Opening a document never writes to it; it's refreshed the next time an editor changes the field. If a preset's color may change after it's been picked, read the live color first:
+When a field references a preset, `value` is a snapshot of the preset's color, taken when the preset was picked. Opening a document never writes to it; it's refreshed the next time an editor changes the field. When the published preset's color no longer matches the snapshot, the field shows **Preset changed** with an **Update** button that refreshes `value` and keeps the reference. If a preset's color may change after it's been picked, read the live color first:
 
 ```groq
 "background": coalesce(background.reference->color.css, background.value.css)

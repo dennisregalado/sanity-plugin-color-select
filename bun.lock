@@ -30,7 +30,7 @@
       "peerDependencies": {
         "@sanity/icons": "^5",
         "@sanity/ui": "^4",
-        "react": "^18 || ^19",
+        "react": "^19.2",
         "sanity": "^6",
       },
     },

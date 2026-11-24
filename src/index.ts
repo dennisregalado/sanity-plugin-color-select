@@ -135,7 +135,7 @@ export const colorPicker = definePlugin<ColorPickerPluginOptions | void>((option
           to: [{type: presetType}],
         }),
       ],
-      validation: (rule) =>
+      validation: (rule) => [
         rule.custom((value: ColorPickerValue | undefined, context) => {
           const type = context.type as ColorPickerSchemaType | undefined
           const paletteOnly = type?.options?.paletteOnly ?? defaults.paletteOnly
@@ -145,6 +145,23 @@ export const colorPicker = definePlugin<ColorPickerPluginOptions | void>((option
           if (allowed && ref && !allowed.includes(ref)) return 'Pick one of this field’s presets'
           return true
         }),
+        // Weak references can outlive their preset. Studio's shared reference-existence check
+        // (the one behind strong reference validation) answers this without a query of our own.
+        rule
+          .custom(async (value: ColorPickerValue | undefined, context) => {
+            const ref = value?.reference?._ref
+            if (!ref || !context.getDocumentExists) return true
+            try {
+              if (await context.getDocumentExists({id: ref})) return true
+            } catch {
+              return true
+            }
+            return value?.value
+              ? 'The linked color preset is deleted or unpublished. Frontends still get the stored color.'
+              : 'The linked color preset is deleted or unpublished.'
+          })
+          .warning(),
+      ],
       preview: {
         select: {css: 'value.css', title: 'reference.title'},
         prepare: ({css, title}: {css?: string; title?: string}) => ({

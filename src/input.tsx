@@ -2,6 +2,7 @@ import {BookmarkIcon} from '@sanity/icons/Bookmark'
 import {EditIcon} from '@sanity/icons/Edit'
 import {Box, Button, Card, Flex, Stack, Text, TextInput, useClickOutsideEvent} from '@sanity/ui'
 import {Popover} from '@sanity/ui/popover'
+import {useToast} from '@sanity/ui/toast'
 import {Tooltip} from '@sanity/ui/tooltip'
 import React, {useCallback, useEffect, useMemo, useRef, useState, type ReactNode} from 'react'
 import {
@@ -31,7 +32,7 @@ import {
   type StoredColor,
 } from './color'
 import {ColorPicker} from './picker'
-import {PresetResults, PresetList, ColorSwatch, usePresets} from './presets'
+import {PresetResults, PresetList, ColorSwatch, filterPresets, usePresets} from './presets'
 import type {ColorOptions, ColorPickerInputProps, ColorPreset} from './types'
 
 /** Points each ref (callback or object) at `node`. */
@@ -76,12 +77,26 @@ function FieldAction({
   )
 }
 
-/** Live color of the referenced preset (draft first, then published). */
-function useReferencedPreset(id: string | undefined, type: string) {
-  const state = useEditState(id ?? '', type)
-  if (!id) return null
+type LiveColor = {id: string; color: StoredColor}
+
+/**
+ * Reports the live color of the referenced preset (draft first, then published). Rendered only
+ * while a field has a reference, so empty fields don't listen to a document.
+ */
+function ReferencedPreset({
+  id,
+  type,
+  onColor,
+}: {
+  id: string
+  type: string
+  onColor: (live: LiveColor) => void
+}) {
+  const state = useEditState(id, type)
   const doc = (state.draft ?? state.published) as {color?: StoredColor} | null
-  return doc?.color ?? null
+  const color = doc?.color ?? null
+  useEffect(() => onColor({id, color}), [id, color, onColor])
+  return null
 }
 
 /** Preset reference, shown like a native reference input (and the link picker's). */
@@ -89,11 +104,13 @@ function PresetReference({
   documentId,
   documentType,
   path,
+  readOnly,
   onReplace,
 }: {
   documentId: string
   documentType: string
   path: Path
+  readOnly?: boolean
   onReplace: () => void
 }) {
   const schemaType = useSchema().get(documentType)
@@ -149,6 +166,7 @@ function PresetReference({
             aria-label="Replace preset"
             icon={EditIcon}
             mode="bleed"
+            disabled={readOnly}
             style={{clipPath: 'inset(3px round 2px)'}}
             onClick={onReplace}
           />
@@ -214,6 +232,7 @@ function ColorField(props: ColorFieldProps) {
     onClear,
   } = props
   const {colors, refresh, client} = usePresets(presetType, !pickerOnly, presetIds)
+  const toast = useToast()
   const hasValue = Boolean(storedValue || referenceId)
 
   const stored = useMemo(() => fromColorValue(storedValue), [storedValue])
@@ -232,6 +251,9 @@ function ColorField(props: ColorFieldProps) {
   const namingRef = useRef(false)
   // Bumped by handlers that should move focus to the input once the next render is committed.
   const [focusRequest, setFocusRequest] = useState(0)
+  // Replace: the input stands in for this preset reference until a pick or dismiss.
+  const [replacingId, setReplacingId] = useState<string | null>(null)
+  const replacing = Boolean(referenceId) && replacingId === referenceId
 
   const typedColor = paletteOnly ? null : parseColor(typed)
   const shown =
@@ -242,50 +264,88 @@ function ColorField(props: ColorFieldProps) {
     stored
   const shownCss = shown ? formatColor(shown, 'rgb', alpha) : ''
   const fieldText = typed ?? storedText
-  const query = !pickerOnly && typed !== null && (paletteOnly || !typedColor) ? typed : ''
+  // Typed text searches presets even when it's also a color (`cafe`, `bad`, `ae2525`).
+  const query = !pickerOnly && typed !== null ? typed : ''
+  const matches = useMemo(
+    () => (query.trim() && colors ? filterPresets(colors, query) : []),
+    [colors, query],
+  )
+  // Written unmistakably as a color, not a word that happens to be hex.
+  const explicitColor =
+    Boolean(typedColor) && /^(#|rgba?\(|hsla?\(|oklch\()/i.test(typed?.trim() ?? '')
 
   useEffect(() => {
-    if (focusRequest) inputRef.current?.focus()
+    if (!focusRequest) return
+    inputRef.current?.focus()
+    // Replace shows the current color's text selected, so typing searches instead of appending.
+    inputRef.current?.select()
   }, [focusRequest])
 
   const close = useCallback(() => {
     setOpen(false)
     setTyped(null)
     setDragging(null)
+    setReplacingId(null)
   }, [])
 
   useClickOutsideEvent(open && close, () => [container, popoverRef.current])
 
   const setManual = useCallback(
     (color: Hsva) => {
-      if (paletteOnly) return
+      if (paletteOnly || readOnly) return
       const next = toColorValue(color, format, alpha)
       if (!referenceId && sameValue(storedValue, next)) return
       onValue(next)
     },
-    [alpha, format, onValue, paletteOnly, referenceId, storedValue],
+    [alpha, format, onValue, paletteOnly, readOnly, referenceId, storedValue],
   )
 
   const setPreset = useCallback(
     (preset: ColorPreset) => {
+      if (readOnly) return
       const color = fromColorValue(preset.color)
       onPreset(preset, color ? toColorValue(color, format, alpha) : null)
       close()
     },
-    [alpha, close, format, onPreset],
+    [alpha, close, format, onPreset, readOnly],
   )
 
+  /**
+   * Typed text can be both a color and a preset search (`cafe`, `bad`, `ae2525`), so a preset name
+   * never silently saves a color:
+   * - Enter picks the first row: "Use <color>" when the text is a color, else the first match.
+   * - Blur applies a typed color only if it can't be a search: written as `#…`, `rgb(…)`,
+   *   `hsl(…)` or `oklch(…)`, picker-only, or matching no preset (presets still loading count as
+   *   a match). Otherwise the text is dropped.
+   * - Paste always applies a color right away (see `pasteColor`).
+   */
   const commitTyped = () => {
-    if (typedColor) setManual(typedColor)
-    else if (typed !== null && !typed.trim() && hasValue) onClear()
+    const mayBeSearch = !pickerOnly && (colors === null || matches.length > 0)
+    if (typedColor && (explicitColor || !mayBeSearch)) setManual(typedColor)
+    else if (!readOnly && typed !== null && !typed.trim() && hasValue) onClear()
     setTyped(null)
   }
 
-  // Pencil: clear the value (or reference) and reopen the popover to pick anew.
+  // The "Use <color>" row.
+  const applyTyped = () => {
+    if (!typedColor) return
+    setManual(typedColor)
+    close()
+  }
+
+  const pickFirst = () => {
+    if (typedColor && query) applyTyped()
+    else if (query.trim() && matches[0]) setPreset(matches[0])
+    else commitTyped()
+  }
+
+  // Pencil: show the input and popover to pick anew. The value and reference stay until a pick,
+  // a typed or pasted color, or an explicit clear; dismissing shows the reference again.
   const edit = () => {
+    if (readOnly) return
     setTyped(null)
     setDragging(null)
-    if (hasValue) onClear()
+    setReplacingId(referenceId ?? null)
     setOpen(true)
     setFocusRequest((n) => n + 1)
   }
@@ -293,26 +353,44 @@ function ColorField(props: ColorFieldProps) {
   // The preset created by the save button; naming mode only renames it.
   const createdRef = useRef<Promise<string> | null>(null)
 
+  const stopNaming = () => {
+    namingRef.current = false
+    setNaming(null)
+  }
+
+  const saveFailed = (title: string, error: unknown) => {
+    toast.push({
+      status: 'error',
+      title,
+      description: error instanceof Error ? error.message : String(error),
+    })
+  }
+
   // Save: create the preset right away, titled with its hex, and reference it. The field
   // then switches to "Name the color"; blur or Enter renames it, empty keeps the hex title.
   const startNaming = () => {
-    if (!shown) return
+    if (!shown || readOnly) return
     const hex = toHex(shown, alpha)
     const color = toColorValue(shown, presetFormat, alpha)
     namingRef.current = true
     setNaming({name: '', color: shown})
     close()
     setFocusRequest((n) => n + 1)
-    createdRef.current = client.create({_type: presetType, title: hex, color}).then((created) => {
+    const created = client.create({_type: presetType, title: hex, color}).then((doc) => {
       refresh()
-      setPreset({_id: created._id, title: hex, color})
-      return created._id
+      setPreset({_id: doc._id, title: hex, color})
+      return doc._id
     })
-  }
-
-  const stopNaming = () => {
-    namingRef.current = false
-    setNaming(null)
+    createdRef.current = created
+    // Failed (no permission, network): leave naming mode and keep the color as a manual value.
+    created.catch((error: unknown) => {
+      if (createdRef.current === created) {
+        createdRef.current = null
+        stopNaming()
+      }
+      setManual(shown)
+      saveFailed('Could not save the preset', error)
+    })
   }
 
   const commitNaming = async () => {
@@ -322,9 +400,19 @@ function ColorField(props: ColorFieldProps) {
     stopNaming()
     createdRef.current = null
     if (!title || !created) return
-    const id = await created
-    await client.patch(id).set({title}).commit()
-    refresh()
+    let id: string
+    try {
+      id = await created
+    } catch {
+      return // Reported by `startNaming`.
+    }
+    try {
+      await client.patch(id).set({title}).commit()
+      refresh()
+    } catch (error) {
+      // The preset exists, titled with its hex, and the field references it.
+      saveFailed('Could not rename the preset', error)
+    }
   }
 
   const storedHex = stored ? toHex(stored, alpha) : null
@@ -360,13 +448,34 @@ function ColorField(props: ColorFieldProps) {
           ref={popoverRef}
           padding={1}
           radius={4}
-          style={{width: 340, maxHeight: 'inherit', overflow: 'auto'}}
+          // Focusable, so a click on its non-focusable parts moves focus here, not to the body,
+          // and the input's blur can tell it stayed inside.
+          tabIndex={-1}
+          style={{width: 340, maxHeight: 'inherit', overflow: 'auto', outline: 'none'}}
           onKeyDown={(event) => {
             if (event.key === 'Escape') close()
           }}
+          onBlur={(event) => {
+            // Tabbing out of the popover closes it too, unless focus goes back to the field.
+            const next = event.relatedTarget as Node | null
+            if (next && !event.currentTarget.contains(next) && !container?.contains(next)) close()
+          }}
         >
           {query ? (
-            <PresetResults colors={colors} query={query} onSelect={setPreset} />
+            <PresetResults
+              colors={colors}
+              query={query}
+              typed={
+                typedColor
+                  ? {
+                      label: formatColor(typedColor, format, alpha),
+                      css: formatColor(typedColor, 'rgb', alpha),
+                      onSelect: applyTyped,
+                    }
+                  : undefined
+              }
+              onSelect={setPreset}
+            />
           ) : (
             <Stack gap={1}>
               {!paletteOnly && (
@@ -376,6 +485,7 @@ function ColorField(props: ColorFieldProps) {
                     alpha={alpha}
                     format={format}
                     onChange={setDragging}
+                    onCancel={() => setDragging(null)}
                     onCommit={(color) => {
                       setDragging(null)
                       setTyped(null)
@@ -399,6 +509,7 @@ function ColorField(props: ColorFieldProps) {
    * Palette-only fields search presets for it instead. Returns whether it was handled.
    */
   const pasteColor = (text: string): boolean => {
+    if (readOnly) return false
     const trimmed = text.trim()
     const color = parseColor(trimmed)
     if (!color) return false
@@ -413,7 +524,7 @@ function ColorField(props: ColorFieldProps) {
     return true
   }
 
-  if (referenceId && !naming) {
+  if (referenceId && !naming && !replacing) {
     return (
       <>
         {popover}
@@ -427,6 +538,7 @@ function ColorField(props: ColorFieldProps) {
             documentId={referenceId}
             documentType={presetType}
             path={path}
+            readOnly={readOnly}
             onReplace={edit}
           />
         </Box>
@@ -482,14 +594,20 @@ function ColorField(props: ColorFieldProps) {
           }}
           onBlur={(event) => {
             elementProps.onBlur(event)
-            if (naming) commitNaming()
-            else commitTyped()
+            if (naming) {
+              commitNaming()
+              return
+            }
+            commitTyped()
+            // Tabbing or clicking away closes the popover (and ends Replace). Focus moving into it,
+            // like the picker's sliders and inputs, keeps it open.
+            if (!popoverRef.current?.contains(event.relatedTarget as Node | null)) close()
           }}
           onKeyDown={(event) => {
             if (event.key === 'Enter') {
               event.preventDefault()
               if (naming) commitNaming()
-              else commitTyped()
+              else pickFirst()
             }
             if (event.key === 'Escape') {
               if (naming) stopNaming()
@@ -527,7 +645,8 @@ export function ColorPickerInput(props: ColorPickerInputProps) {
   const paletteOnly = !pickerOnly && (schemaType.options?.paletteOnly ?? defaults.paletteOnly)
 
   const referenceId = value?.reference?._ref
-  const referencedColor = useReferencedPreset(referenceId, presetType)
+  const [live, setLive] = useState<LiveColor | null>(null)
+  const referencedColor = referenceId && live?.id === referenceId ? live.color : null
   const storedValue = value?.value
   const key = value?._key
   const keyed = useMemo(() => (key ? {_key: key} : {}), [key])
@@ -552,24 +671,27 @@ export function ColorPickerInput(props: ColorPickerInputProps) {
   const onClear = useCallback(() => onChange(unset()), [onChange])
 
   return (
-    <ColorField
-      colorValue={storedValue}
-      referenceId={referenceId}
-      referencedColor={referencedColor}
-      format={format}
-      alpha={alpha}
-      pickerOnly={pickerOnly}
-      paletteOnly={paletteOnly}
-      presetType={presetType}
-      presetIds={schemaType.options?.presets}
-      presetFormat={defaults.format}
-      readOnly={readOnly}
-      elementProps={elementProps}
-      path={path}
-      onValue={onValue}
-      onPreset={onPreset}
-      onClear={onClear}
-    />
+    <>
+      {referenceId && <ReferencedPreset id={referenceId} type={presetType} onColor={setLive} />}
+      <ColorField
+        colorValue={storedValue}
+        referenceId={referenceId}
+        referencedColor={referencedColor}
+        format={format}
+        alpha={alpha}
+        pickerOnly={pickerOnly}
+        paletteOnly={paletteOnly}
+        presetType={presetType}
+        presetIds={schemaType.options?.presets}
+        presetFormat={defaults.format}
+        readOnly={readOnly}
+        elementProps={elementProps}
+        path={path}
+        onValue={onValue}
+        onPreset={onPreset}
+        onClear={onClear}
+      />
+    </>
   )
 }
 

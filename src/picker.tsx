@@ -31,7 +31,8 @@ import {
 } from './color'
 
 const THUMB = 20
-const BLACK: Hsva = {h: 0, s: 0, v: 0, a: 1}
+// An empty field starts at full saturation and brightness, so a hue or opacity drag shows a change.
+const START: Hsva = {h: 0, s: 1, v: 1, a: 1}
 
 function Thumb({x, y, color}: {x: string; y: string; color: string}) {
   return (
@@ -55,9 +56,19 @@ function Thumb({x, y, color}: {x: string; y: string; color: string}) {
   )
 }
 
-/** Pointer handlers that report position inside the element as 0–1 fractions. */
-function useDrag(onMove: (x: number, y: number) => void, onEnd: () => void) {
+/**
+ * Pointer handlers that report position inside the element as 0–1 fractions. A cancelled gesture
+ * (touch interrupted, capture lost) calls `onCancel` instead of `onEnd`: the drag is reverted.
+ */
+function useDrag(onMove: (x: number, y: number) => void, onEnd: () => void, onCancel: () => void) {
   const ref = useRef<HTMLDivElement | null>(null)
+  // Only gestures that started here end here (pointer-up also releases capture).
+  const active = useRef(false)
+  const cancel = () => {
+    if (!active.current) return
+    active.current = false
+    onCancel()
+  }
   const move = (event: PointerEvent<HTMLDivElement>) => {
     const rect = ref.current?.getBoundingClientRect()
     if (!rect) return
@@ -69,13 +80,20 @@ function useDrag(onMove: (x: number, y: number) => void, onEnd: () => void) {
   return {
     ref,
     onPointerDown: (event: PointerEvent<HTMLDivElement>) => {
+      active.current = true
       event.currentTarget.setPointerCapture(event.pointerId)
       move(event)
     },
     onPointerMove: (event: PointerEvent<HTMLDivElement>) => {
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) move(event)
+      if (active.current && event.currentTarget.hasPointerCapture(event.pointerId)) move(event)
     },
-    onPointerUp: onEnd,
+    onPointerUp: () => {
+      if (!active.current) return
+      active.current = false
+      onEnd()
+    },
+    onPointerCancel: cancel,
+    onLostPointerCapture: cancel,
   }
 }
 
@@ -88,6 +106,7 @@ function Slider({
   step,
   onChange,
   onCommit,
+  onCancel,
 }: {
   label: string
   value: number
@@ -96,10 +115,12 @@ function Slider({
   step: number
   onChange: (fraction: number) => void
   onCommit: (fraction: number) => void
+  onCancel: () => void
 }) {
   const drag = useDrag(
     (x) => onChange(x),
     () => onCommit(value),
+    onCancel,
   )
   return (
     <Box
@@ -311,7 +332,7 @@ function IconAction({
 /**
  * Saturation/value area, swatch beside hue (and alpha) sliders, then the color as HEX, RGB or
  * HSL inputs with eyedropper, mode switch and copy. `onChange` fires live while dragging;
- * `onCommit` once a gesture or edit ends.
+ * `onCommit` once a gesture or edit ends; `onCancel` when a drag is cancelled, to drop the live color.
  */
 export function ColorPicker({
   value,
@@ -319,14 +340,16 @@ export function ColorPicker({
   format,
   onChange,
   onCommit,
+  onCancel,
 }: {
   value: Hsva | null
   alpha: boolean
   format: ColorFormat
   onChange: (color: Hsva) => void
   onCommit: (color: Hsva) => void
+  onCancel: () => void
 }) {
-  const color = value ?? BLACK
+  const color = value ?? START
   const [mode, setMode] = useState<ColorFormat>(format)
   const [hexDraft, setHexDraft] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -353,7 +376,11 @@ export function ColorPicker({
     onCommit(next)
   }
 
-  const area = useDrag((x, y) => change({...latest.current, s: x, v: 1 - y}), commitLatest)
+  const area = useDrag(
+    (x, y) => change({...latest.current, s: x, v: 1 - y}),
+    commitLatest,
+    onCancel,
+  )
   const opaque = formatColor({...color, a: 1}, 'hex')
   const css = formatColor(color, 'rgb', alpha)
 
@@ -438,6 +465,7 @@ export function ColorPicker({
             thumbColor={`hsl(${color.h} 100% 50%)`}
             onChange={(x) => change({...latest.current, h: x * 360})}
             onCommit={commitLatest}
+            onCancel={onCancel}
           />
           {alpha && (
             <Slider
@@ -448,6 +476,7 @@ export function ColorPicker({
               thumbColor={css}
               onChange={(x) => change({...latest.current, a: Math.round(x * 100) / 100})}
               onCommit={commitLatest}
+              onCancel={onCancel}
             />
           )}
         </Stack>

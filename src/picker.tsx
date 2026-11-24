@@ -97,10 +97,11 @@ function useDrag(onMove: (x: number, y: number) => void, onEnd: () => void, onCa
   }
 }
 
-/** A horizontal track (hue or alpha) with a round thumb. */
+/** A horizontal track (hue or alpha) with a round thumb. `aria` reports it in its own units. */
 function Slider({
   label,
   value,
+  aria,
   background,
   thumbColor,
   step,
@@ -110,6 +111,7 @@ function Slider({
 }: {
   label: string
   value: number
+  aria: {max: number; now: number; text: string}
   background: string
   thumbColor: string
   step: number
@@ -129,8 +131,9 @@ function Slider({
       tabIndex={0}
       aria-label={label}
       aria-valuemin={0}
-      aria-valuemax={1}
-      aria-valuenow={value}
+      aria-valuemax={aria.max}
+      aria-valuenow={aria.now}
+      aria-valuetext={aria.text}
       onKeyDown={(event: KeyboardEvent) => {
         const dir = {ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1}[event.key]
         if (!dir) return
@@ -253,11 +256,20 @@ function ChannelInput({
   onPasteColor: (text: string) => boolean
 }) {
   const [draft, setDraft] = useState<string | null>(null)
-  const commit = (raw: string | null) => {
+  // Set by Enter on an entry that isn't a number; shown until it's fixed or the input blurs.
+  const [attempted, setAttempted] = useState(false)
+  const valid = (raw: string) => raw.trim() !== '' && !Number.isNaN(Number(raw))
+  const invalid = attempted && draft !== null && !valid(draft)
+  // Enter keeps an invalid entry for fixing; blur (`revert`) drops it.
+  const commit = (raw: string | null, revert: boolean) => {
+    if (raw !== null && !valid(raw) && !revert) {
+      setAttempted(true)
+      return
+    }
     setDraft(null)
-    const n = Number(raw)
-    if (raw === null || raw.trim() === '' || Number.isNaN(n)) return
-    onCommit(clamp(n, channel.min, channel.max))
+    setAttempted(false)
+    if (raw === null || !valid(raw)) return
+    onCommit(clamp(Number(raw), channel.min, channel.max))
   }
   return (
     <Stack gap={2} flex={1} style={{minWidth: 0}}>
@@ -267,6 +279,8 @@ function ChannelInput({
         padding={2}
         inputMode="decimal"
         value={draft ?? String(channel.value)}
+        customValidity={invalid ? 'Enter a number' : undefined}
+        aria-invalid={invalid || undefined}
         style={{textAlign: 'center'}}
         onChange={(event) => setDraft(event.currentTarget.value)}
         onPaste={(event) => {
@@ -276,11 +290,11 @@ function ChannelInput({
             setDraft(null)
           }
         }}
-        onBlur={() => commit(draft)}
+        onBlur={() => commit(draft, true)}
         onKeyDown={(event) => {
           if (event.key === 'Enter') {
             event.preventDefault()
-            commit(draft)
+            commit(draft, false)
           }
           const dir = {ArrowUp: 1, ArrowDown: -1}[event.key]
           if (dir) {
@@ -352,11 +366,14 @@ export function ColorPicker({
   const color = value ?? START
   const [mode, setMode] = useState<ColorFormat>(format)
   const [hexDraft, setHexDraft] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
+  // Set by Enter on an invalid hex; shown until it's fixed or the input blurs.
+  const [hexAttempted, setHexAttempted] = useState(false)
+  const hexInvalid = hexAttempted && hexDraft !== null && !parseColor(hexDraft)
+  const [copied, setCopied] = useState<'copied' | 'failed' | null>(null)
 
   useEffect(() => {
     if (!copied) return undefined
-    const timer = setTimeout(() => setCopied(false), 1500)
+    const timer = setTimeout(() => setCopied(null), 1500)
     return () => clearTimeout(timer)
   }, [copied])
 
@@ -393,10 +410,16 @@ export function ColorPicker({
     return true
   }
 
-  const commitHex = () => {
+  // Enter keeps an invalid hex for fixing; blur (`revert`) drops it.
+  const commitHex = (revert: boolean) => {
     if (hexDraft === null) return
     const parsed = parseColor(hexDraft)
+    if (!parsed && !revert) {
+      setHexAttempted(true)
+      return
+    }
     setHexDraft(null)
+    setHexAttempted(false)
     if (parsed) set(alpha ? parsed : {...parsed, a: color.a})
   }
 
@@ -415,7 +438,15 @@ export function ColorPicker({
 
   const nextMode = COLOR_FORMATS[(COLOR_FORMATS.indexOf(mode) + 1) % COLOR_FORMATS.length]
   const copy = () => {
-    navigator.clipboard?.writeText(formatColor(color, mode, alpha)).then(() => setCopied(true))
+    const text = formatColor(color, mode, alpha)
+    if (!navigator.clipboard) {
+      setCopied('failed')
+      return
+    }
+    navigator.clipboard.writeText(text).then(
+      () => setCopied('copied'),
+      () => setCopied('failed'),
+    )
   }
 
   return (
@@ -460,6 +491,7 @@ export function ColorPicker({
           <Slider
             label="Hue"
             value={color.h / 360}
+            aria={{max: 360, now: Math.round(color.h), text: `${Math.round(color.h)} degrees`}}
             step={1 / 360}
             background="linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%)"
             thumbColor={`hsl(${color.h} 100% 50%)`}
@@ -471,6 +503,11 @@ export function ColorPicker({
             <Slider
               label="Opacity"
               value={color.a}
+              aria={{
+                max: 100,
+                now: Math.round(color.a * 100),
+                text: `${Math.round(color.a * 100)}%`,
+              }}
               step={0.01}
               background={overCheckerboard(`linear-gradient(to right, transparent, ${opaque})`)}
               thumbColor={css}
@@ -492,15 +529,17 @@ export function ColorPicker({
                 padding={2}
                 icon={HashIcon}
                 value={hexDraft ?? toHex({...color, a: 1}).slice(1)}
+                customValidity={hexInvalid ? 'Enter a hex color, like FF5733' : undefined}
+                aria-invalid={hexInvalid || undefined}
                 onChange={(event) => setHexDraft(event.currentTarget.value.replace(/^#/, ''))}
                 onPaste={(event) => {
                   if (pasteColor(event.clipboardData.getData('text'))) event.preventDefault()
                 }}
-                onBlur={commitHex}
+                onBlur={() => commitHex(true)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') {
                     event.preventDefault()
-                    commitHex()
+                    commitHex(false)
                   }
                 }}
               />
@@ -528,8 +567,12 @@ export function ColorPicker({
             onClick={() => setMode(nextMode)}
           />
           <IconAction
-            label={copied ? 'Copied' : `Copy ${mode.toUpperCase()}`}
-            icon={copied ? CheckmarkIcon : CopyIcon}
+            label={
+              (copied === 'copied' && 'Copied') ||
+              (copied === 'failed' && 'Couldn’t copy') ||
+              `Copy ${mode.toUpperCase()}`
+            }
+            icon={copied === 'copied' ? CheckmarkIcon : CopyIcon}
             onClick={copy}
           />
         </Flex>

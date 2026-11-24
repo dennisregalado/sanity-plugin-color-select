@@ -249,6 +249,9 @@ function ColorField(props: ColorFieldProps) {
   const namingRef = useRef(false)
   // Bumped by handlers that should move focus to the input once the next render is committed.
   const [focusRequest, setFocusRequest] = useState(0)
+  // Replace: the input stands in for this preset reference until a pick or dismiss.
+  const [replacingId, setReplacingId] = useState<string | null>(null)
+  const replacing = Boolean(referenceId) && replacingId === referenceId
 
   const typedColor = paletteOnly ? null : parseColor(typed)
   const shown =
@@ -262,13 +265,17 @@ function ColorField(props: ColorFieldProps) {
   const query = !pickerOnly && typed !== null && (paletteOnly || !typedColor) ? typed : ''
 
   useEffect(() => {
-    if (focusRequest) inputRef.current?.focus()
+    if (!focusRequest) return
+    inputRef.current?.focus()
+    // Replace shows the current color's text selected, so typing searches instead of appending.
+    inputRef.current?.select()
   }, [focusRequest])
 
   const close = useCallback(() => {
     setOpen(false)
     setTyped(null)
     setDragging(null)
+    setReplacingId(null)
   }, [])
 
   useClickOutsideEvent(open && close, () => [container, popoverRef.current])
@@ -299,12 +306,13 @@ function ColorField(props: ColorFieldProps) {
     setTyped(null)
   }
 
-  // Pencil: clear the value (or reference) and reopen the popover to pick anew.
+  // Pencil: show the input and popover to pick anew. The value and reference stay until a pick,
+  // a typed or pasted color, or an explicit clear; dismissing shows the reference again.
   const edit = () => {
     if (readOnly) return
     setTyped(null)
     setDragging(null)
-    if (hasValue) onClear()
+    setReplacingId(referenceId ?? null)
     setOpen(true)
     setFocusRequest((n) => n + 1)
   }
@@ -434,7 +442,7 @@ function ColorField(props: ColorFieldProps) {
     return true
   }
 
-  if (referenceId && !naming) {
+  if (referenceId && !naming && !replacing) {
     return (
       <>
         {popover}
@@ -504,8 +512,15 @@ function ColorField(props: ColorFieldProps) {
           }}
           onBlur={(event) => {
             elementProps.onBlur(event)
-            if (naming) commitNaming()
-            else commitTyped()
+            if (naming) {
+              commitNaming()
+              return
+            }
+            commitTyped()
+            // Leaving the field (not into the popover) ends Replace and shows the reference again.
+            if (!popoverRef.current?.contains(event.relatedTarget as Node | null)) {
+              setReplacingId(null)
+            }
           }}
           onKeyDown={(event) => {
             if (event.key === 'Enter') {

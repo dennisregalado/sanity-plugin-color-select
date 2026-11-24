@@ -41,6 +41,8 @@ type ColorFieldInputProps = {
   referenceId?: string
   /** Live color of the referenced preset. */
   referencedColor?: StoredColor
+  /** The referenced preset no longer exists. */
+  referenceDeleted?: boolean
   format: ColorFormat
   alpha: boolean
   pickerOnly: boolean
@@ -72,6 +74,7 @@ function ColorFieldInput(props: ColorFieldInputProps): JSX.Element {
     colorValue: storedValue,
     referenceId,
     referencedColor,
+    referenceDeleted,
     format,
     alpha,
     pickerOnly,
@@ -549,6 +552,8 @@ function ColorFieldInput(props: ColorFieldInputProps): JSX.Element {
             path={path}
             readOnly={readOnly}
             outdated={outdated}
+            deleted={referenceDeleted}
+            storedCss={storedCss(storedValue)}
             onUpdate={updateFromPreset}
             onReplace={edit}
             onUnlink={unlink}
@@ -719,6 +724,7 @@ export function ColorPickerInput(props: ColorPickerInputProps): JSX.Element {
   const referenceId = value?.reference?._ref
   const [live, setLive] = useState<LiveColor | null>(null)
   const referencedColor = referenceId && live?.id === referenceId ? live.color : null
+  const referenceDeleted = Boolean(referenceId && live?.id === referenceId && live.deleted)
   const storedValue = value?.value
   const key = value?._key
   const keyed = useMemo(() => (key ? {_key: key} : {}), [key])
@@ -749,6 +755,7 @@ export function ColorPickerInput(props: ColorPickerInputProps): JSX.Element {
         colorValue={storedValue}
         referenceId={referenceId}
         referencedColor={referencedColor}
+        referenceDeleted={referenceDeleted}
         format={format}
         alpha={alpha}
         pickerOnly={pickerOnly}

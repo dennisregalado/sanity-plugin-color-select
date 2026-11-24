@@ -2,7 +2,7 @@ import {useToast} from '@sanity/ui/toast'
 import {useRef, useState} from 'react'
 import type {SanityClient} from 'sanity'
 
-import {toColorValue, toHex, type ColorFormat, type ColorValue, type Hsva} from './color'
+import {type ColorFormat, type ColorValue, type Hsva, toColorValue, toHex} from './color'
 import type {ColorPreset} from './types'
 
 /** Inline "Name the preset" mode: the name being typed and the color being saved. */

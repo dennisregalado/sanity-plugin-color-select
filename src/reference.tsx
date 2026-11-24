@@ -6,14 +6,14 @@ import {UnlinkIcon} from '@sanity/icons/Unlink'
 import {Box, Button, Card, Flex, Text} from '@sanity/ui'
 import {Menu, MenuButton, MenuDivider, MenuItem} from '@sanity/ui/menu'
 import {Tooltip} from '@sanity/ui/tooltip'
-import {useCallback, useEffect, useId, type JSX, type ReactNode} from 'react'
+import {type JSX, type ReactNode, useCallback, useEffect, useId} from 'react'
 import {
+  type Path,
   SanityDefaultPreview,
   SearchResultItemPreview,
   useEditState,
   usePerspective,
   useSchema,
-  type Path,
 } from 'sanity'
 import {usePaneRouter} from 'sanity/structure'
 

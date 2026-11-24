@@ -3,27 +3,27 @@ import {CheckmarkIcon} from '@sanity/icons/Checkmark'
 import {CloseIcon} from '@sanity/icons/Close'
 import {Box, Card, Flex, Stack, Text, TextInput, useClickOutsideEvent} from '@sanity/ui'
 import {Popover} from '@sanity/ui/popover'
-import React, {useCallback, useEffect, useMemo, useRef, useState, type JSX} from 'react'
-import {set, unset, useDocumentValuePermissions, type ObjectInputProps, type Path} from 'sanity'
+import React, {type JSX, useCallback, useEffect, useMemo, useRef, useState} from 'react'
+import {type ObjectInputProps, type Path, set, unset, useDocumentValuePermissions} from 'sanity'
 
 import {
+  type ColorFormat,
+  type ColorValue,
   formatColor,
   fromColorValue,
+  type Hsva,
   parseColor,
   sameColor,
+  type StoredColor,
   storedCss,
   toColorValue,
   toHex,
-  type ColorFormat,
-  type ColorValue,
-  type Hsva,
-  type StoredColor,
 } from './color'
 import {assignRefs, nextTabbable, tabbables} from './dom'
 import {useListNavigation} from './listNavigation'
 import {ColorPicker} from './picker'
 import {ColorSwatch, filterPresets, PresetList, PresetResults, usePresets} from './presets'
-import {PresetReference, ReferencedPreset, type LiveColor} from './reference'
+import {type LiveColor, PresetReference, ReferencedPreset} from './reference'
 import type {ColorOptions, ColorPickerInputProps, ColorPreset} from './types'
 import {TooltipButton} from './ui'
 import {useSavePreset} from './useSavePreset'
@@ -268,14 +268,14 @@ function ColorFieldInput(props: ColorFieldInputProps): JSX.Element {
 
   // Replace: show the input and popover to pick anew. The value and reference stay until a pick,
   // a typed or pasted color, or an explicit clear; dismissing shows the reference again.
-  const edit = () => {
+  const edit = useCallback(() => {
     if (readOnly) return
     setTyped(null)
     setDragging(null)
     setReplacingId(referenceId ?? null)
     setOpen(true)
     setFocusRequest((n) => n + 1)
-  }
+  }, [readOnly, referenceId])
 
   // Rewrites `value` from the preset's current color, keeping the reference.
   const updateFromPreset = () => {
@@ -292,19 +292,19 @@ function ColorFieldInput(props: ColorFieldInputProps): JSX.Element {
     else onClear()
   }
 
-  const remove = () => {
+  const remove = useCallback(() => {
     if (readOnly) return
     close()
     onClear()
-  }
+  }, [close, onClear, readOnly])
 
   // The × button: clears the typed text and the field's value.
-  const clear = () => {
+  const clear = useCallback(() => {
     if (readOnly) return
     setTyped(null)
     setDragging(null)
     if (hasValue) onClear()
-  }
+  }, [hasValue, onClear, readOnly])
 
   const storedHex = stored ? toHex(stored, alpha) : null
   const alreadyPreset = colors?.some((c) => sameColor(storedCss(c.color), storedHex))
@@ -336,29 +336,51 @@ function ColorFieldInput(props: ColorFieldInputProps): JSX.Element {
    * - Escape in the popover closes it and returns focus to the input.
    * Focus moving between the input and the popover doesn't count as leaving the field.
    */
-  const onPopoverKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape') {
-      // Keep a parent dialog (Portable Text marks) open.
-      event.preventDefault()
-      event.stopPropagation()
-      close()
-      setRestoreRequest((n) => n + 1)
-      return
-    }
-    if (event.key !== 'Tab') return
-    const items = tabbables(event.currentTarget)
-    const index = items.indexOf(document.activeElement as HTMLElement)
-    if (event.shiftKey && index === 0 && inputRef.current) {
-      event.preventDefault()
-      inputRef.current.focus()
-    } else if (!event.shiftKey && index === items.length - 1 && containerRef.current) {
-      event.preventDefault()
-      const next = nextTabbable(containerRef.current, [popoverRef.current])
-      close()
-      if (next) next.focus()
-      else setRestoreRequest((n) => n + 1)
-    }
-  }
+  const onPopoverKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.key === 'Escape') {
+        // Keep a parent dialog (Portable Text marks) open.
+        event.preventDefault()
+        event.stopPropagation()
+        close()
+        setRestoreRequest((n) => n + 1)
+        return
+      }
+      if (event.key !== 'Tab') return
+      const items = tabbables(event.currentTarget)
+      const index = items.indexOf(document.activeElement as HTMLElement)
+      if (event.shiftKey && index === 0 && inputRef.current) {
+        event.preventDefault()
+        inputRef.current.focus()
+      } else if (!event.shiftKey && index === items.length - 1 && containerRef.current) {
+        event.preventDefault()
+        const next = nextTabbable(containerRef.current, [popoverRef.current])
+        close()
+        if (next) next.focus()
+        else setRestoreRequest((n) => n + 1)
+      }
+    },
+    [close],
+  )
+
+  // Tabbing out of the popover closes it too, unless focus goes back to the field.
+  const onPopoverBlur = useCallback(
+    (event: React.FocusEvent<HTMLDivElement>) => {
+      const next = event.relatedTarget as Node | null
+      if (next && !event.currentTarget.contains(next) && !container?.contains(next)) close()
+    },
+    [close, container],
+  )
+
+  const cancelDrag = useCallback(() => setDragging(null), [])
+  const commitPicked = useCallback(
+    (color: Hsva) => {
+      setDragging(null)
+      setTyped(null)
+      setManual(color)
+    },
+    [setManual],
+  )
 
   const popover = (
     <Popover
@@ -381,11 +403,7 @@ function ColorFieldInput(props: ColorFieldInputProps): JSX.Element {
           tabIndex={-1}
           style={{width: 340, maxHeight: 'inherit', overflow: 'auto', outline: 'none'}}
           onKeyDown={onPopoverKeyDown}
-          onBlur={(event) => {
-            // Tabbing out of the popover closes it too, unless focus goes back to the field.
-            const next = event.relatedTarget as Node | null
-            if (next && !event.currentTarget.contains(next) && !container?.contains(next)) close()
-          }}
+          onBlur={onPopoverBlur}
         >
           {query ? (
             <PresetResults
@@ -413,12 +431,8 @@ function ColorFieldInput(props: ColorFieldInputProps): JSX.Element {
                     alpha={alpha}
                     format={format}
                     onChange={setDragging}
-                    onCancel={() => setDragging(null)}
-                    onCommit={(color) => {
-                      setDragging(null)
-                      setTyped(null)
-                      setManual(color)
-                    }}
+                    onCancel={cancelDrag}
+                    onCommit={commitPicked}
                   />
                 </Box>
               )}
@@ -441,32 +455,66 @@ function ColorFieldInput(props: ColorFieldInputProps): JSX.Element {
    * Paste replaces the color, wherever the caret is, and applies right away (no blur needed).
    * Palette-only fields search presets for it instead. Returns whether it was handled.
    */
-  const pasteColor = (text: string): boolean => {
-    if (readOnly) return false
-    const trimmed = text.trim()
-    const color = parseColor(trimmed)
-    if (!color) return false
-    if (paletteOnly) {
-      setTyped(trimmed)
-      setOpen(true)
+  const pasteColor = useCallback(
+    (text: string): boolean => {
+      if (readOnly) return false
+      const trimmed = text.trim()
+      const color = parseColor(trimmed)
+      if (!color) return false
+      if (paletteOnly) {
+        setTyped(trimmed)
+        setOpen(true)
+        return true
+      }
+      setDragging(null)
+      setTyped(null)
+      setManual(color)
       return true
-    }
-    setDragging(null)
-    setTyped(null)
-    setManual(color)
-    return true
-  }
+    },
+    [paletteOnly, readOnly, setManual],
+  )
+
+  const onReferencePaste = useCallback(
+    (event: React.ClipboardEvent) => {
+      if (pasteColor(event.clipboardData.getData('text'))) event.preventDefault()
+    },
+    [pasteColor],
+  )
+
+  // The input's handlers that don't depend on per-keystroke state. (Hooks: before the early
+  // return below.)
+  const elementRef = elementProps.ref as React.Ref<HTMLInputElement> | undefined
+  const setInputRef = useCallback(
+    (node: HTMLInputElement | null) => assignRefs(node, inputRef, elementRef),
+    [elementRef],
+  )
+  const onInputFocus = useCallback(
+    (event: React.FocusEvent<HTMLInputElement>) => {
+      elementProps.onFocus(event)
+      if (skipOpenRef.current) {
+        skipOpenRef.current = false
+        return
+      }
+      if (!naming) setOpen(true)
+    },
+    [elementProps, naming],
+  )
+  const onInputClick = useCallback(() => {
+    if (!naming) setOpen(true)
+  }, [naming])
+  const onInputPaste = useCallback(
+    (event: React.ClipboardEvent<HTMLInputElement>) => {
+      if (naming) return
+      if (pasteColor(event.clipboardData.getData('text'))) event.preventDefault()
+    },
+    [naming, pasteColor],
+  )
 
   if (referenceId && !naming && !replacing) {
     return (
       <>
         {popover}
-        <Box
-          ref={setContainerRef}
-          onPaste={(event: React.ClipboardEvent) => {
-            if (pasteColor(event.clipboardData.getData('text'))) event.preventDefault()
-          }}
-        >
+        <Box ref={setContainerRef} onPaste={onReferencePaste}>
           <PresetReference
             documentId={referenceId}
             documentType={presetType}
@@ -542,9 +590,7 @@ function ColorFieldInput(props: ColorFieldInputProps): JSX.Element {
         )}
         <TextInput
           {...elementProps}
-          ref={(node) =>
-            assignRefs(node, inputRef, elementProps.ref as React.Ref<HTMLInputElement> | undefined)
-          }
+          ref={setInputRef}
           role="combobox"
           aria-autocomplete="list"
           aria-expanded={popoverOpen}
@@ -563,21 +609,9 @@ function ColorFieldInput(props: ColorFieldInputProps): JSX.Element {
             ...(shownCss ? {paddingLeft: 38} : {}),
             ...(actionCount ? {paddingRight: `calc(${actionCount} * 33px + 8px)`} : {}),
           }}
-          onFocus={(event) => {
-            elementProps.onFocus(event)
-            if (skipOpenRef.current) {
-              skipOpenRef.current = false
-              return
-            }
-            if (!naming) setOpen(true)
-          }}
-          onClick={() => {
-            if (!naming) setOpen(true)
-          }}
-          onPaste={(event) => {
-            if (naming) return
-            if (pasteColor(event.clipboardData.getData('text'))) event.preventDefault()
-          }}
+          onFocus={onInputFocus}
+          onClick={onInputClick}
+          onPaste={onInputPaste}
           onChange={(event) => {
             const next = event.currentTarget.value
             if (naming) {

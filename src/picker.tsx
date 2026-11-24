@@ -2,30 +2,31 @@ import {CheckmarkIcon} from '@sanity/icons/Checkmark'
 import {CopyIcon} from '@sanity/icons/Copy'
 import {Box, Card, Flex, Stack, Text, TextInput} from '@sanity/ui'
 import {
+  type JSX,
+  type KeyboardEvent,
+  type PointerEvent,
   useEffect,
   useLayoutEffect,
   useRef,
   useState,
-  type KeyboardEvent,
-  type PointerEvent,
 } from 'react'
 
 import {
   checkerboard,
   clamp,
-  overCheckerboard,
   COLOR_FORMATS,
+  type ColorFormat,
   formatColor,
   hslaToHsva,
+  type Hsva,
   hsvaToHsla,
   hsvaToOklcha,
-  oklchaToHsva,
   hsvaToRgba,
+  oklchaToHsva,
+  overCheckerboard,
   parseColor,
   rgbaToHsva,
   toHex,
-  type ColorFormat,
-  type Hsva,
 } from './color'
 import {TooltipButton} from './ui'
 
@@ -329,7 +330,7 @@ export function ColorPicker({
   onChange: (color: Hsva) => void
   onCommit: (color: Hsva) => void
   onCancel: () => void
-}) {
+}): JSX.Element {
   const color = value ?? START
   const [mode, setMode] = useState<ColorFormat>(format)
   const [hexDraft, setHexDraft] = useState<string | null>(null)

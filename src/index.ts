@@ -2,17 +2,17 @@ import {HighlightIcon} from '@sanity/icons/Highlight'
 import {TextIcon} from '@sanity/icons/Text'
 import React from 'react'
 import {
+  type BlockAnnotationProps,
   defineField,
   definePlugin,
   defineType,
-  type BlockAnnotationProps,
   type ObjectFieldProps,
   type ObjectInputProps,
   type SchemaTypeDefinition,
 } from 'sanity'
 
-import type {ColorValue} from './color'
 import {ColorAnnotation} from './annotations'
+import type {ColorValue} from './color'
 import {ColorFormField} from './field'
 import {ColorPickerInput, PresetColorInput} from './input'
 import {ColorSwatch} from './presets'
@@ -193,15 +193,15 @@ export const colorPicker = definePlugin<ColorPickerPluginOptions | void>((option
 })
 
 export {
+  type ColorFormat,
+  type ColorValue,
   formatColor,
   fromColorValue,
+  type Hsva,
   normalizeColor,
   parseColor,
   sameColor,
   toColorValue,
-  type ColorFormat,
-  type ColorValue,
-  type Hsva,
 } from './color'
 export type {
   ColorOptions,
@@ -209,6 +209,6 @@ export type {
   ColorPickerInputProps,
   ColorPickerPluginOptions,
   ColorPickerValue,
-  ColorReferenceValue,
   ColorPreset,
+  ColorReferenceValue,
 } from './types'

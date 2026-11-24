@@ -9,7 +9,7 @@ export type Oklcha = {l: number; c: number; h: number; a: number}
 export type ColorFormat = 'hex' | 'rgb' | 'hsl' | 'oklch'
 export const COLOR_FORMATS: ColorFormat[] = ['hex', 'rgb', 'hsl', 'oklch']
 
-export const clamp = (n: number, min = 0, max = 1) => Math.min(max, Math.max(min, n))
+export const clamp = (n: number, min = 0, max = 1): number => Math.min(max, Math.max(min, n))
 const round = (n: number, places = 0) => {
   const f = 10 ** places
   return Math.round(n * f) / f

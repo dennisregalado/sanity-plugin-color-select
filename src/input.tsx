@@ -292,7 +292,7 @@ function sameValue(a: Partial<ColorValue> | null | undefined, b: ColorValue): bo
   return Boolean(a && a.css === b.css && a.hex === b.hex && a.alpha === b.alpha && a.hsv)
 }
 
-type ColorFieldProps = {
+type ColorFieldInputProps = {
   /** The stored color object (a field's `value`, or a preset's `color`). */
   colorValue: ColorValue | null | undefined
   /** Set when the color comes from a preset; shows the reference row. */
@@ -323,7 +323,7 @@ type ColorFieldProps = {
  * Shared by `colorPicker` fields and the preset document's `color`; each maps the callbacks onto
  * its own value shape.
  */
-function ColorField(props: ColorFieldProps) {
+function ColorFieldInput(props: ColorFieldInputProps) {
   const {
     colorValue: storedValue,
     referenceId,
@@ -1035,7 +1035,7 @@ export function ColorPickerInput(props: ColorPickerInputProps) {
   return (
     <>
       {referenceId && <ReferencedPreset id={referenceId} type={presetType} onColor={setLive} />}
-      <ColorField
+      <ColorFieldInput
         colorValue={storedValue}
         referenceId={referenceId}
         referencedColor={referencedColor}
@@ -1068,7 +1068,7 @@ export function PresetColorInput(
   const onClear = useCallback(() => onChange(unset()), [onChange])
 
   return (
-    <ColorField
+    <ColorFieldInput
       colorValue={value}
       format={defaults.format}
       alpha={defaults.alpha}

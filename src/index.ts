@@ -13,7 +13,7 @@ import {
 
 import type {ColorValue} from './color'
 import {ColorAnnotation} from './annotations'
-import {ColorField} from './field'
+import {ColorFormField} from './field'
 import {ColorPickerInput, PresetColorInput} from './input'
 import {ColorSwatch} from './presets'
 import type {
@@ -154,7 +154,7 @@ export const colorPicker = definePlugin<ColorPickerPluginOptions | void>((option
       },
       components: {
         // A flat field, like a string or select, rather than a nested object fieldset.
-        field: (props: ObjectFieldProps) => React.createElement(ColorField, props),
+        field: (props: ObjectFieldProps) => React.createElement(ColorFormField, props),
         input: (props: ObjectInputProps) =>
           React.createElement(ColorPickerInput, {
             ...(props as ObjectInputProps<ColorPickerValue>),

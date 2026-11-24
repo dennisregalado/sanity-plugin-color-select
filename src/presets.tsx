@@ -1,5 +1,5 @@
 import {Box, Button, Card, Flex, Spinner, Stack, Text} from '@sanity/ui'
-import React, {useCallback, useMemo, useSyncExternalStore, type ReactNode} from 'react'
+import {useCallback, useMemo, useSyncExternalStore, type ReactNode} from 'react'
 import {
   SanityDefaultPreview,
   useClient,
@@ -10,6 +10,7 @@ import {
 
 import {checkerboard, fromColorValue, storedCss, toHex, type StoredColor} from './color'
 import type {ColorPreset} from './types'
+import {keepFocus} from './ui'
 
 const API_VERSION = '2025-02-19'
 
@@ -18,12 +19,6 @@ const searchableHex = (color: StoredColor) => {
   const parsed = fromColorValue(color)
   return parsed ? toHex(parsed, true).slice(1).toLowerCase() : ''
 }
-
-/**
- * Like the link picker: keep focus in the field while clicking inside the popover. Otherwise the
- * field's blur clears the search and swaps the popover content before the click lands.
- */
-const keepInputFocus = (event: React.MouseEvent) => event.preventDefault()
 
 const PRESET_FIELDS = '| order(title asc) {_id, title, color}'
 
@@ -183,7 +178,7 @@ function OptionButton({
       width="fill"
       padding={1}
       selected={selected}
-      onMouseDown={keepInputFocus}
+      onMouseDown={keepFocus}
       onClick={onSelect}
     >
       {children}

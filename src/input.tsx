@@ -57,6 +57,7 @@ import {
   type ListNavigation,
 } from './presets'
 import type {ColorOptions, ColorPickerInputProps, ColorPreset} from './types'
+import {TooltipButton} from './ui'
 
 /** Points each ref (callback or object) at `node`. */
 function assignRefs<T>(node: T | null, ...refs: Array<React.Ref<T> | undefined>) {
@@ -64,40 +65,6 @@ function assignRefs<T>(node: T | null, ...refs: Array<React.Ref<T> | undefined>)
     if (typeof ref === 'function') ref(node)
     else if (ref) (ref as React.MutableRefObject<T | null>).current = node
   }
-}
-
-/** A bleed icon button sized like Sanity UI's TextInput clear button. */
-function FieldAction({
-  label,
-  icon,
-  onClick,
-}: {
-  label: string
-  icon: React.ElementType
-  onClick: () => void
-}) {
-  return (
-    <Tooltip
-      animate
-      portal
-      placement="top"
-      content={
-        <Text size={1} weight="medium">
-          {label}
-        </Text>
-      }
-    >
-      <Button
-        aria-label={label}
-        icon={icon}
-        mode="bleed"
-        padding={2}
-        // Keep focus in the input, like the built-in clear button.
-        onMouseDown={(event) => event.preventDefault()}
-        onClick={onClick}
-      />
-    </Tooltip>
-  )
 }
 
 type LiveColor = {id: string; color: StoredColor}
@@ -973,13 +940,26 @@ function ColorFieldInput(props: ColorFieldInputProps) {
             padding={1}
             style={{position: 'absolute', top: 0, right: 0, bottom: 0, zIndex: 2}}
           >
+            {/* Sized like TextInput's clear button, and like it, they keep focus in the input. */}
             {naming && (
-              <FieldAction label="Save preset" icon={CheckmarkIcon} onClick={commitNaming} />
+              <TooltipButton
+                keepInputFocus
+                label="Save preset"
+                icon={CheckmarkIcon}
+                onClick={commitNaming}
+              />
             )}
             {!naming && canSave && (
-              <FieldAction label="Save as preset" icon={BookmarkIcon} onClick={startNaming} />
+              <TooltipButton
+                keepInputFocus
+                label="Save as preset"
+                icon={BookmarkIcon}
+                onClick={startNaming}
+              />
             )}
-            {!naming && canClear && <FieldAction label="Clear" icon={CloseIcon} onClick={clear} />}
+            {!naming && canClear && (
+              <TooltipButton keepInputFocus label="Clear" icon={CloseIcon} onClick={clear} />
+            )}
           </Flex>
         )}
       </Box>

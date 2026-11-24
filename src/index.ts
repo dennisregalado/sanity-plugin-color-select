@@ -2,18 +2,18 @@ import {HighlightIcon} from '@sanity/icons/Highlight'
 import {TextIcon} from '@sanity/icons/Text'
 import React from 'react'
 import {
+  type BlockAnnotationProps,
   defineField,
   definePlugin,
   defineType,
-  type BlockAnnotationProps,
   type ObjectFieldProps,
   type ObjectInputProps,
   type SchemaTypeDefinition,
 } from 'sanity'
 
-import type {ColorValue} from './color'
 import {ColorAnnotation} from './annotations'
-import {ColorField} from './field'
+import type {ColorValue} from './color'
+import {ColorFormField} from './field'
 import {ColorPickerInput, PresetColorInput} from './input'
 import {ColorSwatch} from './presets'
 import type {
@@ -33,8 +33,8 @@ const channels = (name: string, title: string, keys: string[]) =>
   })
 
 /**
- * Registers a `colorPicker` field type, its `colorPickerValue` object and a preset document
- * type (`colorPreset` by default).
+ * Registers a `colorPicker` field type, its `colorPickerValue` object, a preset document type
+ * (`colorPreset` by default) and the `colorText` and `colorHighlight` Portable Text marks.
  *
  * The input always writes the resolved color to `value` (`css`, `hex`, `alpha`, `rgb`, `hsl`,
  * `hsv`, `oklch`), and also a weak `reference` when it came from a preset, so GROQ can read
@@ -154,7 +154,7 @@ export const colorPicker = definePlugin<ColorPickerPluginOptions | void>((option
       },
       components: {
         // A flat field, like a string or select, rather than a nested object fieldset.
-        field: (props: ObjectFieldProps) => React.createElement(ColorField, props),
+        field: (props: ObjectFieldProps) => React.createElement(ColorFormField, props),
         input: (props: ObjectInputProps) =>
           React.createElement(ColorPickerInput, {
             ...(props as ObjectInputProps<ColorPickerValue>),
@@ -193,15 +193,15 @@ export const colorPicker = definePlugin<ColorPickerPluginOptions | void>((option
 })
 
 export {
+  type ColorFormat,
+  type ColorValue,
   formatColor,
   fromColorValue,
+  type Hsva,
   normalizeColor,
   parseColor,
   sameColor,
   toColorValue,
-  type ColorFormat,
-  type ColorValue,
-  type Hsva,
 } from './color'
 export type {
   ColorOptions,
@@ -209,6 +209,6 @@ export type {
   ColorPickerInputProps,
   ColorPickerPluginOptions,
   ColorPickerValue,
-  ColorReferenceValue,
   ColorPreset,
+  ColorReferenceValue,
 } from './types'

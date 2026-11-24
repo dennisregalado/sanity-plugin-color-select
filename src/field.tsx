@@ -5,7 +5,7 @@ import {FormField, type ObjectFieldProps} from 'sanity'
  * Renders the color object like a primitive field: a flat `FormField` around the input,
  * instead of the default object `FormFieldSet` with its indented left rule.
  */
-export function ColorField(props: ObjectFieldProps): JSX.Element {
+export function ColorFormField(props: ObjectFieldProps): JSX.Element {
   return (
     <FormField
       __internal_comments={props.__internal_comments}

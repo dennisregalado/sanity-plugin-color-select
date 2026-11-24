@@ -9,8 +9,10 @@ export type ColorReferenceValue = {
 }
 
 /**
- * `value` is always the resolved color. `reference` is set when it came from a preset; the
- * input keeps `value` in sync with it.
+ * `value` is the resolved color, what frontends read. `reference` is set when it came from a
+ * preset; `value` is then a copy of the preset's color taken when it was picked. It isn't kept in
+ * sync: the field shows "Preset changed" when the published preset differs, and Update refreshes
+ * the copy.
  */
 export type ColorPickerValue = {
   _key?: string
@@ -19,7 +21,7 @@ export type ColorPickerValue = {
   reference?: ColorReferenceValue | null
 }
 
-/** A preset document. `color` is the same object as a field's `value` (older docs: a string). */
+/** A preset document. `color` is the same object as a field's `value`. */
 export type ColorPreset = {
   _id: string
   title?: string | null
@@ -32,9 +34,9 @@ export interface ColorOptions {
   format?: ColorFormat
   /** Show the opacity slider and keep alpha in the value. Defaults to `true`. */
   alpha?: boolean
-  /** Only allow preset: no picker, no custom values, no saving. Defaults to `false`. */
+  /** Only allow presets: no picker, no custom values, no saving. Defaults to `false`. */
   paletteOnly?: boolean
-  /** Only the picker: no preset, search, saving or references. Defaults to `false`. */
+  /** Only the picker: no presets, search, saving or references. Defaults to `false`. */
   pickerOnly?: boolean
 }
 

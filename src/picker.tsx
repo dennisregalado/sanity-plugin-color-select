@@ -1,34 +1,34 @@
 import {CheckmarkIcon} from '@sanity/icons/Checkmark'
 import {CopyIcon} from '@sanity/icons/Copy'
-import {Box, Button, Card, Flex, Stack, Text, TextInput} from '@sanity/ui'
-import {Tooltip} from '@sanity/ui/tooltip'
+import {Box, Card, Flex, Stack, Text, TextInput} from '@sanity/ui'
 import {
+  type JSX,
+  type KeyboardEvent,
+  type PointerEvent,
   useEffect,
   useLayoutEffect,
   useRef,
   useState,
-  type ElementType,
-  type KeyboardEvent,
-  type PointerEvent,
 } from 'react'
 
 import {
   checkerboard,
   clamp,
-  overCheckerboard,
   COLOR_FORMATS,
+  type ColorFormat,
   formatColor,
   hslaToHsva,
+  type Hsva,
   hsvaToHsla,
   hsvaToOklcha,
-  oklchaToHsva,
   hsvaToRgba,
+  oklchaToHsva,
+  overCheckerboard,
   parseColor,
   rgbaToHsva,
   toHex,
-  type ColorFormat,
-  type Hsva,
 } from './color'
+import {TooltipButton} from './ui'
 
 const THUMB = 20
 // An empty field starts at full saturation and brightness, so a hue or opacity drag shows a change.
@@ -311,41 +311,9 @@ function ChannelInput({
   )
 }
 
-function IconAction({
-  label,
-  icon,
-  onClick,
-}: {
-  label: string
-  icon: ElementType
-  onClick: () => void
-}) {
-  return (
-    <Tooltip
-      animate
-      portal
-      placement="top"
-      content={
-        <Text size={1} weight="medium">
-          {label}
-        </Text>
-      }
-    >
-      <Button
-        aria-label={label}
-        icon={icon}
-        mode="bleed"
-        padding={2}
-        fontSize={1}
-        onClick={onClick}
-      />
-    </Tooltip>
-  )
-}
-
 /**
- * Saturation/value area, swatch beside hue (and alpha) sliders, then the color as HEX, RGB or
- * HSL inputs with eyedropper, mode switch and copy. `onChange` fires live while dragging;
+ * Saturation/value area, swatch beside hue (and alpha) sliders, then the color as HEX, RGB, HSL
+ * or OKLCH inputs with eyedropper, mode switch and copy. `onChange` fires live while dragging;
  * `onCommit` once a gesture or edit ends; `onCancel` when a drag is cancelled, to drop the live color.
  */
 export function ColorPicker({
@@ -362,7 +330,7 @@ export function ColorPicker({
   onChange: (color: Hsva) => void
   onCommit: (color: Hsva) => void
   onCancel: () => void
-}) {
+}): JSX.Element {
   const color = value ?? START
   const [mode, setMode] = useState<ColorFormat>(format)
   const [hexDraft, setHexDraft] = useState<string | null>(null)
@@ -559,20 +527,27 @@ export function ColorPicker({
         </Flex>
         <Flex>
           {EyeDropper && (
-            <IconAction label="Pick from screen" icon={EyedropperIcon} onClick={pickFromScreen} />
+            <TooltipButton
+              label="Pick from screen"
+              icon={EyedropperIcon}
+              fontSize={1}
+              onClick={pickFromScreen}
+            />
           )}
-          <IconAction
+          <TooltipButton
             label={`Switch to ${nextMode.toUpperCase()}`}
             icon={UpDownIcon}
+            fontSize={1}
             onClick={() => setMode(nextMode)}
           />
-          <IconAction
+          <TooltipButton
             label={
               (copied === 'copied' && 'Copied') ||
               (copied === 'failed' && 'Couldn’t copy') ||
               `Copy ${mode.toUpperCase()}`
             }
             icon={copied === 'copied' ? CheckmarkIcon : CopyIcon}
+            fontSize={1}
             onClick={copy}
           />
         </Flex>

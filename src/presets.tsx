@@ -1,28 +1,25 @@
 import {Box, Button, Card, Flex, Spinner, Stack, Text} from '@sanity/ui'
-import React, {useCallback, useMemo, useSyncExternalStore, type ReactNode} from 'react'
+import {type JSX, type ReactNode, useCallback, useMemo, useSyncExternalStore} from 'react'
 import {
+  type DocumentStore,
+  type SanityClient,
   SanityDefaultPreview,
   useClient,
   useDocumentStore,
-  type DocumentStore,
-  type SanityClient,
 } from 'sanity'
 
-import {checkerboard, fromColorValue, storedCss, toHex, type StoredColor} from './color'
+import {checkerboard, fromColorValue, type StoredColor, storedCss, toHex} from './color'
+import type {ListNavigation} from './listNavigation'
+import type {ColorPreset} from './types'
+import {keepFocus} from './ui'
 
+const API_VERSION = '2025-02-19'
+
+/** A preset's hex without `#`, lowercase, for prefix search (`6f4e` finds `#6F4E37`). */
 const searchableHex = (color: StoredColor) => {
   const parsed = fromColorValue(color)
   return parsed ? toHex(parsed, true).slice(1).toLowerCase() : ''
 }
-import type {ColorPreset} from './types'
-
-const API_VERSION = '2025-02-19'
-
-/**
- * Like the link picker: keep focus in the field while clicking inside the popover. Otherwise the
- * field's blur clears the search and swaps the popover content before the click lands.
- */
-const keepInputFocus = (event: React.MouseEvent) => event.preventDefault()
 
 const PRESET_FIELDS = '| order(title asc) {_id, title, color}'
 
@@ -105,7 +102,11 @@ const noSubscription = () => () => undefined
  * Every published color preset, kept live: presets created or edited elsewhere (another pane,
  * another user) show up without reopening the document.
  */
-export function usePresets(type: string, enabled = true, ids?: string[]) {
+export function usePresets(
+  type: string,
+  enabled = true,
+  ids?: string[],
+): {colors: ColorPreset[] | null; refresh: () => void; client: SanityClient} {
   const client = useClient({apiVersion: API_VERSION})
   const documentStore = useDocumentStore()
   const idsKey = ids?.join(',') ?? ''
@@ -130,7 +131,13 @@ export function filterPresets(colors: ColorPreset[], query: string): ColorPreset
   )
 }
 
-export function ColorSwatch({color, size = 16}: {color?: string | null; size?: number | string}) {
+export function ColorSwatch({
+  color,
+  size = 16,
+}: {
+  color?: string | null
+  size?: number | string
+}): JSX.Element {
   return (
     <Card
       as="span"
@@ -147,28 +154,29 @@ export function ColorSwatch({color, size = 16}: {color?: string | null; size?: n
   )
 }
 
-/** Keyboard state shared by the popover's lists: the active row and the ids ARIA points at. */
-export type ListNavigation = {
-  listboxId: string
-  /** Index into the popover's rows (the "Use <color>" row first, when shown). */
-  activeIndex: number
-  optionId: (index: number) => string
-}
+type TypedRow = {label: string; css: string; onSelect: () => void}
+const selectTyped = (typed: TypedRow) => typed.onSelect()
 
-/** A list row: a bleed button with the hover look while it's the keyboard's active row. */
-function OptionButton({
+/**
+ * A list row: a bleed button with the hover look while it's the keyboard's active row. Clicking
+ * it calls `onSelect(value)`.
+ */
+function OptionButton<T>({
   index,
   nav,
   selected,
+  value,
   onSelect,
   children,
 }: {
   index: number
   nav: ListNavigation
   selected?: boolean
-  onSelect: () => void
+  value: T
+  onSelect: (row: T) => void
   children: ReactNode
-}) {
+}): JSX.Element {
+  const select = useCallback(() => onSelect(value), [onSelect, value])
   const active = index === nav.activeIndex
   return (
     <Button
@@ -182,8 +190,8 @@ function OptionButton({
       width="fill"
       padding={1}
       selected={selected}
-      onMouseDown={keepInputFocus}
-      onClick={onSelect}
+      onMouseDown={keepFocus}
+      onClick={select}
     >
       {children}
     </Button>
@@ -200,7 +208,7 @@ export function PresetList({
   selectedId?: string
   nav: ListNavigation
   onSelect: (color: ColorPreset) => void
-}) {
+}): JSX.Element {
   return (
     <Stack gap={1}>
       <Box paddingX={2} paddingY={3}>
@@ -228,7 +236,8 @@ export function PresetList({
               index={index}
               nav={nav}
               selected={c._id === selectedId}
-              onSelect={() => onSelect(c)}
+              value={c}
+              onSelect={onSelect}
             >
               <SanityDefaultPreview
                 layout="compact"
@@ -259,10 +268,10 @@ export function PresetResults({
   colors: ColorPreset[] | null
   matches: ColorPreset[]
   query: string
-  typed?: {label: string; css: string; onSelect: () => void}
+  typed?: TypedRow
   nav: ListNavigation
   onSelect: (color: ColorPreset) => void
-}) {
+}): JSX.Element {
   const label =
     colors === null
       ? 'Searching...'
@@ -272,7 +281,7 @@ export function PresetResults({
   return (
     <Stack gap={1} id={nav.listboxId} role="listbox" aria-label="Colors">
       {typed && (
-        <OptionButton index={0} nav={nav} onSelect={() => typed.onSelect()}>
+        <OptionButton index={0} nav={nav} value={typed} onSelect={selectTyped}>
           <SanityDefaultPreview
             layout="default"
             title={`Use ${typed.label}`}
@@ -289,7 +298,13 @@ export function PresetResults({
       {matches.length > 0 ? (
         <Stack gap={1} role="group" aria-label={label} style={{maxHeight: 390, overflowY: 'auto'}}>
           {matches.map((c, index) => (
-            <OptionButton key={c._id} index={index + offset} nav={nav} onSelect={() => onSelect(c)}>
+            <OptionButton
+              key={c._id}
+              index={index + offset}
+              nav={nav}
+              value={c}
+              onSelect={onSelect}
+            >
               <SanityDefaultPreview
                 layout="default"
                 title={c.title || 'Untitled'}

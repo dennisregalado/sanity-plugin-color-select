@@ -9,7 +9,7 @@ export type Oklcha = {l: number; c: number; h: number; a: number}
 export type ColorFormat = 'hex' | 'rgb' | 'hsl' | 'oklch'
 export const COLOR_FORMATS: ColorFormat[] = ['hex', 'rgb', 'hsl', 'oklch']
 
-export const clamp = (n: number, min = 0, max = 1) => Math.min(max, Math.max(min, n))
+export const clamp = (n: number, min = 0, max = 1): number => Math.min(max, Math.max(min, n))
 const round = (n: number, places = 0) => {
   const f = 10 ** places
   return Math.round(n * f) / f
@@ -170,18 +170,18 @@ export function toHex(color: Hsva, alpha = false): string {
   return `#${hex2(r)}${hex2(g)}${hex2(b)}${aa}`.toUpperCase()
 }
 
-export function toRgb(color: Hsva, alpha = false): string {
+function toRgb(color: Hsva, alpha = false): string {
   const {r, g, b, a} = hsvaToRgba(color)
   return alpha && a < 1 ? `rgb(${r} ${g} ${b} / ${round(a, 2)})` : `rgb(${r} ${g} ${b})`
 }
 
-export function toHsl(color: Hsva, alpha = false): string {
+function toHsl(color: Hsva, alpha = false): string {
   const {h, s, l, a} = hsvaToHsla(color)
   const body = `${Math.round(h)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`
   return alpha && a < 1 ? `hsl(${body} / ${round(a, 2)})` : `hsl(${body})`
 }
 
-export function toOklch(color: Hsva, alpha = false): string {
+function toOklch(color: Hsva, alpha = false): string {
   const {l, c, h, a} = hsvaToOklcha(color)
   const body = `${round(l * 100, 1)}% ${round(c, 3)} ${round(h, 1)}`
   return alpha && a < 1 ? `oklch(${body} / ${round(a, 2)})` : `oklch(${body})`

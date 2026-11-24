@@ -9,6 +9,7 @@ import {
 } from 'sanity'
 
 import {checkerboard, fromColorValue, storedCss, toHex, type StoredColor} from './color'
+import type {ListNavigation} from './listNavigation'
 import type {ColorPreset} from './types'
 import {keepFocus} from './ui'
 
@@ -141,14 +142,6 @@ export function ColorSwatch({color, size = 16}: {color?: string | null; size?: n
       }}
     />
   )
-}
-
-/** Keyboard state shared by the popover's lists: the active row and the ids ARIA points at. */
-export type ListNavigation = {
-  listboxId: string
-  /** Index into the popover's rows (the "Use <color>" row first, when shown). */
-  activeIndex: number
-  optionId: (index: number) => string
 }
 
 /** A list row: a bleed button with the hover look while it's the keyboard's active row. */

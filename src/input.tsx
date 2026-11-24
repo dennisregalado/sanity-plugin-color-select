@@ -1,38 +1,10 @@
 import {BookmarkIcon} from '@sanity/icons/Bookmark'
 import {CheckmarkIcon} from '@sanity/icons/Checkmark'
 import {CloseIcon} from '@sanity/icons/Close'
-import {EditIcon} from '@sanity/icons/Edit'
-import {EllipsisHorizontalIcon} from '@sanity/icons/EllipsisHorizontal'
-import {LaunchIcon} from '@sanity/icons/Launch'
-import {TrashIcon} from '@sanity/icons/Trash'
-import {UnlinkIcon} from '@sanity/icons/Unlink'
-import {Box, Button, Card, Flex, Stack, Text, TextInput, useClickOutsideEvent} from '@sanity/ui'
-import {Menu, MenuButton, MenuDivider, MenuItem} from '@sanity/ui/menu'
+import {Box, Card, Flex, Stack, Text, TextInput, useClickOutsideEvent} from '@sanity/ui'
 import {Popover} from '@sanity/ui/popover'
-import {useToast} from '@sanity/ui/toast'
-import {Tooltip} from '@sanity/ui/tooltip'
-import React, {
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react'
-import {
-  SanityDefaultPreview,
-  SearchResultItemPreview,
-  set,
-  unset,
-  useDocumentValuePermissions,
-  useEditState,
-  usePerspective,
-  useSchema,
-  type ObjectInputProps,
-  type Path,
-} from 'sanity'
-import {usePaneRouter} from 'sanity/structure'
+import React, {useCallback, useEffect, useMemo, useRef, useState, type JSX} from 'react'
+import {set, unset, useDocumentValuePermissions, type ObjectInputProps, type Path} from 'sanity'
 
 import {
   formatColor,
@@ -47,212 +19,14 @@ import {
   type Hsva,
   type StoredColor,
 } from './color'
+import {assignRefs, nextTabbable, tabbables} from './dom'
+import {useListNavigation} from './listNavigation'
 import {ColorPicker} from './picker'
-import {
-  ColorSwatch,
-  PresetList,
-  PresetResults,
-  filterPresets,
-  usePresets,
-  type ListNavigation,
-} from './presets'
+import {ColorSwatch, filterPresets, PresetList, PresetResults, usePresets} from './presets'
+import {PresetReference, ReferencedPreset, type LiveColor} from './reference'
 import type {ColorOptions, ColorPickerInputProps, ColorPreset} from './types'
 import {TooltipButton} from './ui'
-
-/** Points each ref (callback or object) at `node`. */
-function assignRefs<T>(node: T | null, ...refs: Array<React.Ref<T> | undefined>) {
-  for (const ref of refs) {
-    if (typeof ref === 'function') ref(node)
-    else if (ref) (ref as React.MutableRefObject<T | null>).current = node
-  }
-}
-
-type LiveColor = {id: string; color: StoredColor}
-
-/**
- * Reports the live color of the referenced preset. Rendered only while a field has a reference,
- * so empty fields don't listen to a document.
- *
- * Reads the *published* preset, like the preset list and the copy taken at pick time: frontends
- * only ever see published presets, so an unpublished draft edit doesn't flag every field that uses
- * the preset as out of date (or show a color no frontend will get).
- */
-function ReferencedPreset({
-  id,
-  type,
-  onColor,
-}: {
-  id: string
-  type: string
-  onColor: (live: LiveColor) => void
-}) {
-  const state = useEditState(id, type)
-  const doc = state.published as {color?: StoredColor} | null
-  const color = doc?.color ?? null
-  useEffect(() => onColor({id, color}), [id, color, onColor])
-  return null
-}
-
-const insetClip = {clipPath: 'inset(3px round 2px)'}
-
-/** Preset reference, shown like a native reference input (and the link picker's). */
-function PresetReference({
-  documentId,
-  documentType,
-  path,
-  readOnly,
-  outdated,
-  onUpdate,
-  onReplace,
-  onUnlink,
-  onRemove,
-}: {
-  documentId: string
-  documentType: string
-  path: Path
-  readOnly?: boolean
-  /** The preset's color changed since it was copied to `value`: the two colors, as text. */
-  outdated?: {stored: string | null; current: string} | null
-  onUpdate: () => void
-  onReplace: () => void
-  onUnlink: () => void
-  onRemove: () => void
-}) {
-  const schemaType = useSchema().get(documentType)
-  const perspective = usePerspective()
-  const {ReferenceChildLink, handleEditReference} = usePaneRouter()
-  const menuId = useId()
-
-  const preview: ReactNode = schemaType ? (
-    <SearchResultItemPreview
-      documentId={documentId}
-      documentType={documentType}
-      layout="compact"
-      perspective={perspective.perspectiveStack}
-      schemaType={schemaType}
-      showBadge={false}
-    />
-  ) : (
-    <Box style={{width: '100%'}}>
-      <SanityDefaultPreview isPlaceholder layout="compact" />
-    </Box>
-  )
-
-  return (
-    <Card border radius={2} overflow="hidden">
-      <Flex align="center" style={{height: 33}}>
-        <Box flex={1} style={{minWidth: 0}}>
-          <ReferenceChildLink
-            documentId={documentId}
-            documentType={documentType}
-            parentRefPath={path}
-          >
-            <Button as="span" mode="bleed" padding={0} width="fill" style={insetClip}>
-              {preview}
-            </Button>
-          </ReferenceChildLink>
-        </Box>
-        {outdated && (
-          <Flex align="center" gap={1} paddingLeft={2} style={{flex: 'none'}}>
-            <Tooltip
-              animate
-              portal
-              placement="top"
-              content={
-                <Text size={1}>
-                  {outdated.stored
-                    ? `The preset is now ${outdated.current}; this field still stores ${outdated.stored}.`
-                    : `The preset is now ${outdated.current}; this field stores no color yet.`}
-                </Text>
-              }
-            >
-              <Text size={1} muted>
-                Preset changed
-              </Text>
-            </Tooltip>
-            {!readOnly && (
-              <Button
-                mode="bleed"
-                tone="primary"
-                fontSize={1}
-                padding={2}
-                text="Update"
-                style={insetClip}
-                onClick={onUpdate}
-              />
-            )}
-          </Flex>
-        )}
-        <MenuButton
-          id={menuId}
-          button={
-            <Button
-              aria-label="Preset actions"
-              data-preset-menu=""
-              icon={EllipsisHorizontalIcon}
-              mode="bleed"
-              style={insetClip}
-            />
-          }
-          menu={
-            <Menu>
-              <MenuItem icon={EditIcon} text="Replace" disabled={readOnly} onClick={onReplace} />
-              <MenuItem
-                icon={UnlinkIcon}
-                text="Unlink from preset"
-                disabled={readOnly}
-                onClick={onUnlink}
-              />
-              <MenuItem
-                icon={LaunchIcon}
-                text="Open preset"
-                onClick={() =>
-                  handleEditReference({
-                    parentRefPath: path,
-                    id: documentId,
-                    type: documentType,
-                    template: {id: documentType},
-                  })
-                }
-              />
-              <MenuDivider />
-              <MenuItem
-                icon={TrashIcon}
-                text="Remove"
-                tone="critical"
-                disabled={readOnly}
-                onClick={onRemove}
-              />
-            </Menu>
-          }
-          popover={{portal: true, placement: 'bottom-end', fallbackPlacements: ['top-end']}}
-        />
-      </Flex>
-    </Card>
-  )
-}
-
-const TABBABLE = 'a[href], button, input, select, textarea, [tabindex]'
-
-/** Elements Tab can reach inside `root`, in DOM order. */
-function tabbables(root: HTMLElement | Document): HTMLElement[] {
-  return Array.from(root.querySelectorAll<HTMLElement>(TABBABLE)).filter(
-    (el) => el.tabIndex >= 0 && !el.hasAttribute('disabled') && el.getClientRects().length > 0,
-  )
-}
-
-/** The element Tab would reach after `after`, skipping anything inside `skip`. */
-function nextTabbable(after: HTMLElement, skip: Array<HTMLElement | null>): HTMLElement | null {
-  return (
-    tabbables(document).find(
-      (el) =>
-        !after.contains(el) &&
-        // eslint-disable-next-line no-bitwise
-        Boolean(after.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) &&
-        !skip.some((node) => node?.contains(el)),
-    ) ?? null
-  )
-}
+import {useSavePreset} from './useSavePreset'
 
 /** Same color, format and alpha: nothing to write. */
 function sameValue(a: Partial<ColorValue> | null | undefined, b: ColorValue): boolean {
@@ -290,7 +64,7 @@ type ColorFieldInputProps = {
  * Shared by `colorPicker` fields and the preset document's `color`; each maps the callbacks onto
  * its own value shape.
  */
-function ColorFieldInput(props: ColorFieldInputProps) {
+function ColorFieldInput(props: ColorFieldInputProps): JSX.Element {
   const {
     colorValue: storedValue,
     referenceId,
@@ -310,7 +84,6 @@ function ColorFieldInput(props: ColorFieldInputProps) {
     onClear,
   } = props
   const {colors, refresh, client} = usePresets(presetType, !pickerOnly, presetIds)
-  const toast = useToast()
   const hasValue = Boolean(storedValue || referenceId)
 
   // Saving publishes a new preset (`client.create`, a non-draft id), so check `create` on one.
@@ -324,6 +97,8 @@ function ColorFieldInput(props: ColorFieldInputProps) {
   const storedText = storedValue?.css ?? ''
 
   const [open, setOpen] = useState(false)
+  // The state re-renders the popover and click-outside with the new node; effects and handlers
+  // read the ref, so the focus effects below don't re-run when the input and reference row swap.
   const [container, setContainer] = useState<HTMLDivElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const setContainerRef = useCallback((node: HTMLDivElement | null) => {
@@ -332,21 +107,73 @@ function ColorFieldInput(props: ColorFieldInputProps) {
   }, [])
   const popoverRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
-  // Text typed in the field: a color to apply, or a search over preset.
+  // Text typed in the field: a color to apply, or a search over presets.
   const [typed, setTyped] = useState<string | null>(null)
   // Live color while dragging in the picker, before it is committed.
   const [dragging, setDragging] = useState<Hsva | null>(null)
-  // Inline "Name the color" mode: the name being typed and the preset it created.
-  const [naming, setNaming] = useState<{name: string; color: Hsva} | null>(null)
-  const namingRef = useRef(false)
   // Bumped by handlers that should move focus to the input once the next render is committed.
   const [focusRequest, setFocusRequest] = useState(0)
   // Bumped when the popover closes from inside: focus goes back to the field, without reopening.
   const [restoreRequest, setRestoreRequest] = useState(0)
+  // A ref, not state: it's set right before `input.focus()`, whose focus event fires in the same
+  // tick, before any re-render.
   const skipOpenRef = useRef(false)
   // Replace: the input stands in for this preset reference until a pick or dismiss.
   const [replacingId, setReplacingId] = useState<string | null>(null)
   const replacing = Boolean(referenceId) && replacingId === referenceId
+
+  const close = useCallback(() => {
+    setOpen(false)
+    setTyped(null)
+    setDragging(null)
+    setReplacingId(null)
+  }, [])
+
+  useClickOutsideEvent(open && close, () => [container, popoverRef.current])
+
+  const setManual = useCallback(
+    (color: Hsva) => {
+      if (paletteOnly || readOnly) return
+      const next = toColorValue(color, format, alpha)
+      if (!referenceId && sameValue(storedValue, next)) return
+      onValue(next)
+    },
+    [alpha, format, onValue, paletteOnly, readOnly, referenceId, storedValue],
+  )
+
+  const setPreset = useCallback(
+    (preset: ColorPreset) => {
+      if (readOnly) return
+      const color = fromColorValue(preset.color)
+      onPreset(preset, color ? toColorValue(color, format, alpha) : null)
+      close()
+    },
+    [alpha, close, format, onPreset, readOnly],
+  )
+
+  const {
+    naming,
+    setName: setNamingName,
+    start: startNaming,
+    commit: commitNaming,
+    cancel: cancelNaming,
+  } = useSavePreset({
+    client,
+    refresh,
+    presetType,
+    presetFormat,
+    alpha,
+    readOnly,
+    storedValue,
+    onStart: () => {
+      close()
+      setFocusRequest((n) => n + 1)
+    },
+    onCreated: setPreset,
+    onFailed: setManual,
+    onValue,
+    onClear,
+  })
 
   const live = referenceId ? fromColorValue(referencedColor) : null
   const typedColor = paletteOnly ? null : parseColor(typed)
@@ -378,6 +205,7 @@ function ColorFieldInput(props: ColorFieldInputProps) {
     if (!focusRequest) return
     inputRef.current?.focus()
     // Replace shows the current color's text selected, so typing searches instead of appending.
+    // (Naming starts with an empty input, so there's nothing to select.)
     inputRef.current?.select()
   }, [focusRequest])
 
@@ -393,35 +221,6 @@ function ColorFieldInput(props: ColorFieldInputProps) {
     // Replace ended: back to the reference row's menu button.
     containerRef.current?.querySelector<HTMLElement>('[data-preset-menu]')?.focus()
   }, [restoreRequest])
-
-  const close = useCallback(() => {
-    setOpen(false)
-    setTyped(null)
-    setDragging(null)
-    setReplacingId(null)
-  }, [])
-
-  useClickOutsideEvent(open && close, () => [container, popoverRef.current])
-
-  const setManual = useCallback(
-    (color: Hsva) => {
-      if (paletteOnly || readOnly) return
-      const next = toColorValue(color, format, alpha)
-      if (!referenceId && sameValue(storedValue, next)) return
-      onValue(next)
-    },
-    [alpha, format, onValue, paletteOnly, readOnly, referenceId, storedValue],
-  )
-
-  const setPreset = useCallback(
-    (preset: ColorPreset) => {
-      if (readOnly) return
-      const color = fromColorValue(preset.color)
-      onPreset(preset, color ? toColorValue(color, format, alpha) : null)
-      close()
-    },
-    [alpha, close, format, onPreset, readOnly],
-  )
 
   /**
    * Typed text can be both a color and a preset search (`cafe`, `bad`, `ae2525`), so a preset name
@@ -464,27 +263,8 @@ function ColorFieldInput(props: ColorFieldInputProps) {
   ]
   const hasListbox = Boolean(query) || listColors.length > 0
 
-  // The active row belongs to one list: it resets when the query changes or the popover closes.
-  const listKey = `${popoverOpen}|${query}`
-  const [activeState, setActiveState] = useState({key: '', index: -1})
-  const activeIndex =
-    activeState.key === listKey && activeState.index < rows.length ? activeState.index : -1
-  const setActiveIndex = (index: number) => setActiveState({key: listKey, index})
-
-  const baseId = useId()
-  const nav: ListNavigation = useMemo(
-    () => ({
-      listboxId: `${baseId}-listbox`,
-      activeIndex,
-      optionId: (index: number) => `${baseId}-option-${index}`,
-    }),
-    [activeIndex, baseId],
-  )
-
-  useEffect(() => {
-    if (activeIndex < 0) return
-    document.getElementById(nav.optionId(activeIndex))?.scrollIntoView({block: 'nearest'})
-  }, [activeIndex, nav])
+  const {nav, move} = useListNavigation(`${popoverOpen}|${query}`, rows.length)
+  const {activeIndex} = nav
 
   // Replace: show the input and popover to pick anew. The value and reference stay until a pick,
   // a typed or pasted color, or an explicit clear; dismissing shows the reference again.
@@ -524,115 +304,6 @@ function ColorFieldInput(props: ColorFieldInputProps) {
     setTyped(null)
     setDragging(null)
     if (hasValue) onClear()
-  }
-
-  /**
-   * The preset created by the save button. Naming mode only renames it; Escape deletes it.
-   * `before` is the manual value to restore on cancel; `linked` is set once the field references
-   * the new preset.
-   */
-  const createdRef = useRef<{
-    promise: Promise<string>
-    before: ColorValue | null | undefined
-    cancelled: boolean
-    linked: boolean
-  } | null>(null)
-
-  const stopNaming = () => {
-    namingRef.current = false
-    setNaming(null)
-  }
-
-  const saveFailed = (title: string, error: unknown) => {
-    toast.push({
-      status: 'error',
-      title,
-      description: error instanceof Error ? error.message : String(error),
-    })
-  }
-
-  // Save: create the preset right away, titled with its hex, and reference it. The field
-  // then switches to "Name the color"; blur or Enter renames it (empty keeps the hex title),
-  // Escape deletes it and puts the manual color back.
-  const startNaming = () => {
-    if (!shown || readOnly) return
-    const hex = toHex(shown, alpha)
-    const color = toColorValue(shown, presetFormat, alpha)
-    namingRef.current = true
-    setNaming({name: '', color: shown})
-    close()
-    setFocusRequest((n) => n + 1)
-    const entry = {
-      promise: Promise.resolve(''),
-      before: storedValue,
-      cancelled: false,
-      linked: false,
-    }
-    entry.promise = client.create({_type: presetType, title: hex, color}).then((doc) => {
-      refresh()
-      if (!entry.cancelled) {
-        entry.linked = true
-        setPreset({_id: doc._id, title: hex, color})
-      }
-      return doc._id
-    })
-    createdRef.current = entry
-    // Failed (no permission, network): leave naming mode and keep the color as a manual value.
-    entry.promise.catch((error: unknown) => {
-      if (createdRef.current === entry) {
-        createdRef.current = null
-        stopNaming()
-      }
-      if (entry.cancelled) return // Nothing was left behind.
-      setManual(shown)
-      saveFailed('Could not save the preset', error)
-    })
-  }
-
-  const commitNaming = async () => {
-    if (!naming) return
-    const title = naming.name.trim()
-    const entry = createdRef.current
-    stopNaming()
-    createdRef.current = null
-    if (!title || !entry) return
-    let id: string
-    try {
-      id = await entry.promise
-    } catch {
-      return // Reported by `startNaming`.
-    }
-    try {
-      await client.patch(id).set({title}).commit()
-      refresh()
-    } catch (error) {
-      // The preset exists, titled with its hex, and the field references it.
-      saveFailed('Could not rename the preset', error)
-    }
-  }
-
-  // Escape while naming: undo the save. Waits for the create, then puts the manual color back
-  // (without the reference) and deletes the preset.
-  const cancelNaming = async () => {
-    const entry = createdRef.current
-    stopNaming()
-    createdRef.current = null
-    if (!entry) return
-    entry.cancelled = true
-    let id: string
-    try {
-      id = await entry.promise
-    } catch {
-      return // The create failed: there's nothing to delete.
-    }
-    if (entry.linked && entry.before) onValue(entry.before)
-    else if (entry.linked) onClear()
-    try {
-      await client.delete(id)
-      refresh()
-    } catch (error) {
-      saveFailed('Could not delete the preset', error)
-    }
   }
 
   const storedHex = stored ? toHex(stored, alpha) : null
@@ -847,11 +518,7 @@ function ColorFieldInput(props: ColorFieldInputProps) {
         if (!readOnly) setOpen(true)
         return
       }
-      if (!rows.length) return
-      const down = event.key === 'ArrowDown'
-      let next = down ? activeIndex + 1 : activeIndex - 1
-      if (activeIndex < 0 && !down) next = rows.length - 1
-      setActiveIndex((next + rows.length) % rows.length)
+      move(event.key === 'ArrowDown')
       return
     }
     if (event.key === 'Tab' && !event.shiftKey && popoverOpen && !query && popoverRef.current) {
@@ -902,10 +569,10 @@ function ColorFieldInput(props: ColorFieldInputProps) {
               skipOpenRef.current = false
               return
             }
-            if (!namingRef.current) setOpen(true)
+            if (!naming) setOpen(true)
           }}
           onClick={() => {
-            if (!namingRef.current) setOpen(true)
+            if (!naming) setOpen(true)
           }}
           onPaste={(event) => {
             if (naming) return
@@ -914,7 +581,7 @@ function ColorFieldInput(props: ColorFieldInputProps) {
           onChange={(event) => {
             const next = event.currentTarget.value
             if (naming) {
-              setNaming({...naming, name: next})
+              setNamingName(next)
               return
             }
             setTyped(next)
@@ -954,7 +621,7 @@ function ColorFieldInput(props: ColorFieldInputProps) {
                 keepInputFocus
                 label="Save as preset"
                 icon={BookmarkIcon}
-                onClick={startNaming}
+                onClick={() => startNaming(shown)}
               />
             )}
             {!naming && canClear && (
@@ -979,7 +646,7 @@ function ColorFieldInput(props: ColorFieldInputProps) {
  * a weak `reference`, with `value` as a snapshot of its color taken when it was picked. Nothing is
  * written just by opening a document.
  */
-export function ColorPickerInput(props: ColorPickerInputProps) {
+export function ColorPickerInput(props: ColorPickerInputProps): JSX.Element {
   const {value, onChange, readOnly, presetType, elementProps, path, schemaType, defaults} = props
   const format = schemaType.options?.format ?? defaults.format
   const alpha = schemaType.options?.alpha ?? defaults.alpha
@@ -1042,7 +709,7 @@ const noop = () => undefined
 /** The preset document's `color`: the same field, picker only, writing the value object itself. */
 export function PresetColorInput(
   props: ObjectInputProps<ColorValue> & {presetType: string; defaults: Required<ColorOptions>},
-) {
+): JSX.Element {
   const {value, onChange, readOnly, elementProps, path, presetType, defaults} = props
   const onValue = useCallback((next: ColorValue) => onChange(set(next)), [onChange])
   const onClear = useCallback(() => onChange(unset()), [onChange])

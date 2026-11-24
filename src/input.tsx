@@ -31,7 +31,7 @@ import {
   type StoredColor,
 } from './color'
 import {ColorPicker} from './picker'
-import {PresetResults, PresetList, ColorSwatch, usePresets} from './presets'
+import {PresetResults, PresetList, ColorSwatch, filterPresets, usePresets} from './presets'
 import type {ColorOptions, ColorPickerInputProps, ColorPreset} from './types'
 
 /** Points each ref (callback or object) at `node`. */
@@ -262,7 +262,15 @@ function ColorField(props: ColorFieldProps) {
     stored
   const shownCss = shown ? formatColor(shown, 'rgb', alpha) : ''
   const fieldText = typed ?? storedText
-  const query = !pickerOnly && typed !== null && (paletteOnly || !typedColor) ? typed : ''
+  // Typed text searches presets even when it's also a color (`cafe`, `bad`, `ae2525`).
+  const query = !pickerOnly && typed !== null ? typed : ''
+  const matches = useMemo(
+    () => (query.trim() && colors ? filterPresets(colors, query) : []),
+    [colors, query],
+  )
+  // Written unmistakably as a color, not a word that happens to be hex.
+  const explicitColor =
+    Boolean(typedColor) && /^(#|rgba?\(|hsla?\(|oklch\()/i.test(typed?.trim() ?? '')
 
   useEffect(() => {
     if (!focusRequest) return
@@ -300,10 +308,33 @@ function ColorField(props: ColorFieldProps) {
     [alpha, close, format, onPreset, readOnly],
   )
 
+  /**
+   * Typed text can be both a color and a preset search (`cafe`, `bad`, `ae2525`), so a preset name
+   * never silently saves a color:
+   * - Enter picks the first row: "Use <color>" when the text is a color, else the first match.
+   * - Blur applies a typed color only if it can't be a search: written as `#…`, `rgb(…)`,
+   *   `hsl(…)` or `oklch(…)`, picker-only, or matching no preset (presets still loading count as
+   *   a match). Otherwise the text is dropped.
+   * - Paste always applies a color right away (see `pasteColor`).
+   */
   const commitTyped = () => {
-    if (typedColor) setManual(typedColor)
+    const mayBeSearch = !pickerOnly && (colors === null || matches.length > 0)
+    if (typedColor && (explicitColor || !mayBeSearch)) setManual(typedColor)
     else if (!readOnly && typed !== null && !typed.trim() && hasValue) onClear()
     setTyped(null)
+  }
+
+  // The "Use <color>" row.
+  const applyTyped = () => {
+    if (!typedColor) return
+    setManual(typedColor)
+    close()
+  }
+
+  const pickFirst = () => {
+    if (typedColor && query) applyTyped()
+    else if (query.trim() && matches[0]) setPreset(matches[0])
+    else commitTyped()
   }
 
   // Pencil: show the input and popover to pick anew. The value and reference stay until a pick,
@@ -401,7 +432,20 @@ function ColorField(props: ColorFieldProps) {
           }}
         >
           {query ? (
-            <PresetResults colors={colors} query={query} onSelect={setPreset} />
+            <PresetResults
+              colors={colors}
+              query={query}
+              typed={
+                typedColor
+                  ? {
+                      label: formatColor(typedColor, format, alpha),
+                      css: formatColor(typedColor, 'rgb', alpha),
+                      onSelect: applyTyped,
+                    }
+                  : undefined
+              }
+              onSelect={setPreset}
+            />
           ) : (
             <Stack gap={1}>
               {!paletteOnly && (
@@ -533,7 +577,7 @@ function ColorField(props: ColorFieldProps) {
             if (event.key === 'Enter') {
               event.preventDefault()
               if (naming) commitNaming()
-              else commitTyped()
+              else pickFirst()
             }
             if (event.key === 'Escape') {
               if (naming) stopNaming()

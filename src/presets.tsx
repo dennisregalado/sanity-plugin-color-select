@@ -128,14 +128,19 @@ export function PresetList({
   )
 }
 
-/** Search results, laid out like the link picker's: a count header, then one row per match. */
+/**
+ * Search results, laid out like the link picker's: a count header, then one row per match.
+ * `typed` adds a first "Use <color>" row when the query is itself a color.
+ */
 export function PresetResults({
   colors,
   query,
+  typed,
   onSelect,
 }: {
   colors: ColorPreset[] | null
   query: string
+  typed?: {label: string; css: string; onSelect: () => void}
   onSelect: (color: ColorPreset) => void
 }) {
   const matches = useMemo(() => (colors ? filterPresets(colors, query) : []), [colors, query])
@@ -146,6 +151,21 @@ export function PresetResults({
 
   return (
     <Stack gap={1}>
+      {typed && (
+        <Button
+          mode="bleed"
+          width="fill"
+          padding={1}
+          onMouseDown={keepInputFocus}
+          onClick={() => typed.onSelect()}
+        >
+          <SanityDefaultPreview
+            layout="default"
+            title={`Use ${typed.label}`}
+            media={<ColorSwatch color={typed.css} size="100%" />}
+          />
+        </Button>
+      )}
       <Box paddingX={2} paddingY={3}>
         <Text size={1} weight="medium">
           {label}

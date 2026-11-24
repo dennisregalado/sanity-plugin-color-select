@@ -376,6 +376,7 @@ function ColorField(props: ColorFieldProps) {
                     alpha={alpha}
                     format={format}
                     onChange={setDragging}
+                    onCancel={() => setDragging(null)}
                     onCommit={(color) => {
                       setDragging(null)
                       setTyped(null)

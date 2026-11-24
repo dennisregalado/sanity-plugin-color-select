@@ -28,6 +28,7 @@ import {
   rgbaToHsva,
   toHex,
 } from './color'
+import {type ColorSelectTranslate, useColorSelectTranslation} from './i18n'
 import {TooltipButton} from './ui'
 
 const THUMB = 20
@@ -194,37 +195,38 @@ function HashIcon() {
 
 type EyeDropperCtor = new () => {open: () => Promise<{sRGBHex: string}>}
 
-type Channel = {key: string; label: string; value: number; min: number; max: number; step?: number}
+type ChannelKey = 'r' | 'g' | 'b' | 'a' | 'h' | 's' | 'l' | 'c'
+type Channel = {key: ChannelKey; value: number; min: number; max: number; step?: number}
 
 /** Channels shown for each input mode, read from and written back to HSVA. */
 function channelsFor(mode: ColorFormat, color: Hsva, alpha: boolean): Channel[] {
   const a: Channel[] = alpha
-    ? [{key: 'a', label: 'A', value: Math.round(color.a * 100) / 100, min: 0, max: 1, step: 0.01}]
+    ? [{key: 'a', value: Math.round(color.a * 100) / 100, min: 0, max: 1, step: 0.01}]
     : []
   if (mode === 'rgb') {
     const {r, g, b} = hsvaToRgba(color)
     return [
-      {key: 'r', label: 'R', value: r, min: 0, max: 255},
-      {key: 'g', label: 'G', value: g, min: 0, max: 255},
-      {key: 'b', label: 'B', value: b, min: 0, max: 255},
+      {key: 'r', value: r, min: 0, max: 255},
+      {key: 'g', value: g, min: 0, max: 255},
+      {key: 'b', value: b, min: 0, max: 255},
       ...a,
     ]
   }
   if (mode === 'oklch') {
     const {l, c, h} = hsvaToOklcha(color)
     return [
-      {key: 'l', label: 'L', value: Math.round(l * 1000) / 10, min: 0, max: 100, step: 0.1},
-      {key: 'c', label: 'C', value: Math.round(c * 1000) / 1000, min: 0, max: 0.4, step: 0.005},
-      {key: 'h', label: 'H', value: Math.round(h * 10) / 10, min: 0, max: 360},
+      {key: 'l', value: Math.round(l * 1000) / 10, min: 0, max: 100, step: 0.1},
+      {key: 'c', value: Math.round(c * 1000) / 1000, min: 0, max: 0.4, step: 0.005},
+      {key: 'h', value: Math.round(h * 10) / 10, min: 0, max: 360},
       ...a,
     ]
   }
   if (mode === 'hsl') {
     const {h, s, l} = hsvaToHsla(color)
     return [
-      {key: 'h', label: 'H', value: Math.round(h), min: 0, max: 360},
-      {key: 's', label: 'S', value: Math.round(s * 100), min: 0, max: 100},
-      {key: 'l', label: 'L', value: Math.round(l * 100), min: 0, max: 100},
+      {key: 'h', value: Math.round(h), min: 0, max: 360},
+      {key: 's', value: Math.round(s * 100), min: 0, max: 100},
+      {key: 'l', value: Math.round(l * 100), min: 0, max: 100},
       ...a,
     ]
   }
@@ -248,13 +250,16 @@ const looksLikeColor = (text: string) =>
 
 function ChannelInput({
   channel,
+  t,
   onCommit,
   onPasteColor,
 }: {
   channel: Channel
+  t: ColorSelectTranslate
   onCommit: (n: number) => void
   onPasteColor: (text: string) => boolean
 }) {
+  const label = t(`picker.channel.${channel.key}`)
   const [draft, setDraft] = useState<string | null>(null)
   // Set by Enter on an entry that isn't a number; shown until it's fixed or the input blurs.
   const [attempted, setAttempted] = useState(false)
@@ -274,12 +279,12 @@ function ChannelInput({
   return (
     <Stack gap={2} flex={1} style={{minWidth: 0}}>
       <TextInput
-        aria-label={channel.label}
+        aria-label={label}
         fontSize={1}
         padding={2}
         inputMode="decimal"
         value={draft ?? String(channel.value)}
-        customValidity={invalid ? 'Enter a number' : undefined}
+        customValidity={invalid ? t('picker.channel.invalid') : undefined}
         aria-invalid={invalid || undefined}
         style={{textAlign: 'center'}}
         onChange={(event) => setDraft(event.currentTarget.value)}
@@ -305,7 +310,7 @@ function ChannelInput({
         }}
       />
       <Text size={0} muted align="center">
-        {channel.label}
+        {label}
       </Text>
     </Stack>
   )
@@ -331,6 +336,7 @@ export function ColorPicker({
   onCommit: (color: Hsva) => void
   onCancel: () => void
 }): JSX.Element {
+  const {t} = useColorSelectTranslation()
   const color = value ?? START
   const [mode, setMode] = useState<ColorFormat>(format)
   const [hexDraft, setHexDraft] = useState<string | null>(null)
@@ -424,7 +430,7 @@ export function ColorPicker({
         radius={2}
         role="slider"
         tabIndex={0}
-        aria-label="Saturation and brightness"
+        aria-label={t('picker.area.label')}
         aria-valuetext={opaque}
         onKeyDown={(event: KeyboardEvent) => {
           const step = (event.shiftKey ? 10 : 1) / 100
@@ -457,9 +463,13 @@ export function ColorPicker({
         />
         <Stack gap={3} flex={1}>
           <Slider
-            label="Hue"
+            label={t('picker.hue.label')}
             value={color.h / 360}
-            aria={{max: 360, now: Math.round(color.h), text: `${Math.round(color.h)} degrees`}}
+            aria={{
+              max: 360,
+              now: Math.round(color.h),
+              text: t('picker.hue.value', {degrees: Math.round(color.h)}),
+            }}
             step={1 / 360}
             background="linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%)"
             thumbColor={`hsl(${color.h} 100% 50%)`}
@@ -469,12 +479,12 @@ export function ColorPicker({
           />
           {alpha && (
             <Slider
-              label="Opacity"
+              label={t('picker.opacity.label')}
               value={color.a}
               aria={{
                 max: 100,
                 now: Math.round(color.a * 100),
-                text: `${Math.round(color.a * 100)}%`,
+                text: t('picker.opacity.value', {percent: Math.round(color.a * 100)}),
               }}
               step={0.01}
               background={overCheckerboard(`linear-gradient(to right, transparent, ${opaque})`)}
@@ -492,12 +502,12 @@ export function ColorPicker({
           {mode === 'hex' && (
             <Stack gap={2} flex={1} style={{minWidth: 0}}>
               <TextInput
-                aria-label="Hex"
+                aria-label={t('picker.hex.label')}
                 fontSize={1}
                 padding={2}
                 icon={HashIcon}
                 value={hexDraft ?? toHex({...color, a: 1}).slice(1)}
-                customValidity={hexInvalid ? 'Enter a hex color, like FF5733' : undefined}
+                customValidity={hexInvalid ? t('picker.hex.invalid') : undefined}
                 aria-invalid={hexInvalid || undefined}
                 onChange={(event) => setHexDraft(event.currentTarget.value.replace(/^#/, ''))}
                 onPaste={(event) => {
@@ -520,6 +530,7 @@ export function ColorPicker({
             <ChannelInput
               key={`${mode}-${channel.key}`}
               channel={channel}
+              t={t}
               onCommit={(n) => set(withChannel(mode, color, channel.key, n))}
               onPasteColor={pasteColor}
             />
@@ -528,23 +539,23 @@ export function ColorPicker({
         <Flex>
           {EyeDropper && (
             <TooltipButton
-              label="Pick from screen"
+              label={t('picker.eyedropper')}
               icon={EyedropperIcon}
               fontSize={1}
               onClick={pickFromScreen}
             />
           )}
           <TooltipButton
-            label={`Switch to ${nextMode.toUpperCase()}`}
+            label={t('picker.switch-format', {format: nextMode.toUpperCase()})}
             icon={UpDownIcon}
             fontSize={1}
             onClick={() => setMode(nextMode)}
           />
           <TooltipButton
             label={
-              (copied === 'copied' && 'Copied') ||
-              (copied === 'failed' && 'Couldn’t copy') ||
-              `Copy ${mode.toUpperCase()}`
+              (copied === 'copied' && t('picker.copy.copied')) ||
+              (copied === 'failed' && t('picker.copy.failed')) ||
+              t('picker.copy', {format: mode.toUpperCase()})
             }
             icon={copied === 'copied' ? CheckmarkIcon : CopyIcon}
             fontSize={1}

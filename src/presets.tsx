@@ -9,6 +9,7 @@ import {
 } from 'sanity'
 
 import {checkerboard, fromColorValue, type StoredColor, storedCss, toHex} from './color'
+import {useColorSelectTranslation} from './i18n'
 import type {ListNavigation} from './listNavigation'
 import type {ColorPreset} from './types'
 import {keepFocus} from './ui'
@@ -209,11 +210,12 @@ export function PresetList({
   nav: ListNavigation
   onSelect: (color: ColorPreset) => void
 }): JSX.Element {
+  const {t} = useColorSelectTranslation()
   return (
     <Stack gap={1}>
       <Box paddingX={2} paddingY={3}>
         <Text size={1} weight="medium">
-          Presets
+          {t('presets.heading')}
         </Text>
       </Box>
       {colors === null && (
@@ -224,12 +226,12 @@ export function PresetList({
       {colors?.length === 0 && (
         <Box paddingX={2} paddingBottom={3}>
           <Text size={1} muted>
-            No presets yet
+            {t('presets.empty')}
           </Text>
         </Box>
       )}
       {colors && colors.length > 0 && (
-        <Stack gap={1} id={nav.listboxId} role="listbox" aria-label="Presets">
+        <Stack gap={1} id={nav.listboxId} role="listbox" aria-label={t('presets.list-label')}>
           {colors.map((c, index) => (
             <OptionButton
               key={c._id}
@@ -241,7 +243,7 @@ export function PresetList({
             >
               <SanityDefaultPreview
                 layout="compact"
-                title={c.title || 'Untitled'}
+                title={c.title || t('presets.untitled')}
                 subtitle={storedCss(c.color) || undefined}
                 media={<ColorSwatch color={storedCss(c.color)} size="100%" />}
               />
@@ -272,19 +274,18 @@ export function PresetResults({
   nav: ListNavigation
   onSelect: (color: ColorPreset) => void
 }): JSX.Element {
+  const {t} = useColorSelectTranslation()
   const label =
-    colors === null
-      ? 'Searching...'
-      : `${matches.length} ${matches.length === 1 ? 'result' : 'results'}`
+    colors === null ? t('presets.searching') : t('presets.results', {count: matches.length})
   const offset = typed ? 1 : 0
 
   return (
-    <Stack gap={1} id={nav.listboxId} role="listbox" aria-label="Colors">
+    <Stack gap={1} id={nav.listboxId} role="listbox" aria-label={t('presets.results-label')}>
       {typed && (
         <OptionButton index={0} nav={nav} value={typed} onSelect={selectTyped}>
           <SanityDefaultPreview
             layout="default"
-            title={`Use ${typed.label}`}
+            title={t('presets.use-color', {color: typed.label})}
             media={<ColorSwatch color={typed.css} size="100%" />}
           />
         </OptionButton>
@@ -307,7 +308,7 @@ export function PresetResults({
             >
               <SanityDefaultPreview
                 layout="default"
-                title={c.title || 'Untitled'}
+                title={c.title || t('presets.untitled')}
                 subtitle={storedCss(c.color) || undefined}
                 media={<ColorSwatch color={storedCss(c.color)} size="100%" />}
               />
@@ -318,7 +319,7 @@ export function PresetResults({
         colors !== null && (
           <Box paddingX={2} paddingBottom={3}>
             <Text size={1} muted>
-              No presets match “{query.trim()}”
+              {t('presets.no-matches', {query: query.trim()})}
             </Text>
           </Box>
         )

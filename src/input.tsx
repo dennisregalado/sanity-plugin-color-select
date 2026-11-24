@@ -20,6 +20,7 @@ import {
   toHex,
 } from './color'
 import {assignRefs, nextTabbable, tabbables} from './dom'
+import {useColorSelectTranslation} from './i18n'
 import {useListNavigation} from './listNavigation'
 import {ColorPicker} from './picker'
 import {ColorSwatch, filterPresets, PresetList, PresetResults, usePresets} from './presets'
@@ -90,6 +91,7 @@ function ColorFieldInput(props: ColorFieldInputProps): JSX.Element {
     onPreset,
     onClear,
   } = props
+  const {t} = useColorSelectTranslation()
   const {colors, refresh, client} = usePresets(presetType, !pickerOnly, presetIds)
   const {recent, add: addRecent} = useRecentColors(pickerOnly && recentColors)
   const hasValue = Boolean(storedValue || referenceId)
@@ -332,10 +334,10 @@ function ColorFieldInput(props: ColorFieldInputProps): JSX.Element {
   if (naming) actionCount = 1
   if (readOnly) actionCount = 0
 
-  let placeholder = 'Search or paste a color'
-  if (pickerOnly) placeholder = 'Paste a color'
-  if (paletteOnly) placeholder = 'Search color presets'
-  if (naming) placeholder = 'Name the preset'
+  let placeholder = t('input.placeholder')
+  if (pickerOnly) placeholder = t('input.placeholder.picker-only')
+  if (paletteOnly) placeholder = t('input.placeholder.palette-only')
+  if (naming) placeholder = t('input.placeholder.naming')
 
   /**
    * Keyboard model, like a combobox with the picker as its popup:
@@ -678,7 +680,7 @@ function ColorFieldInput(props: ColorFieldInputProps): JSX.Element {
             {naming && (
               <TooltipButton
                 keepInputFocus
-                label="Save preset"
+                label={t('input.save-preset')}
                 icon={CheckmarkIcon}
                 onClick={commitNaming}
               />
@@ -686,13 +688,18 @@ function ColorFieldInput(props: ColorFieldInputProps): JSX.Element {
             {!naming && canSave && (
               <TooltipButton
                 keepInputFocus
-                label="Save as preset"
+                label={t('input.save-as-preset')}
                 icon={BookmarkIcon}
                 onClick={() => startNaming(shown)}
               />
             )}
             {!naming && canClear && (
-              <TooltipButton keepInputFocus label="Clear" icon={CloseIcon} onClick={clear} />
+              <TooltipButton
+                keepInputFocus
+                label={t('input.clear')}
+                icon={CloseIcon}
+                onClick={clear}
+              />
             )}
           </Flex>
         )}
@@ -700,7 +707,7 @@ function ColorFieldInput(props: ColorFieldInputProps): JSX.Element {
       {naming && (
         <Box paddingTop={2}>
           <Text size={1} muted>
-            Enter to save · Esc to cancel
+            {t('input.naming-hint')}
           </Text>
         </Box>
       )}

@@ -14,6 +14,7 @@ import {
 import {ColorAnnotation} from './annotations'
 import type {ColorValue} from './color'
 import {ColorFormField} from './field'
+import {colorSelectUsEnglishLocaleBundle} from './i18n'
 import {ColorPickerInput, PresetColorInput} from './input'
 import {ColorSwatch} from './presets'
 import type {
@@ -198,6 +199,7 @@ export const colorPicker = definePlugin<ColorPickerPluginOptions | void>((option
 
   return {
     name: 'color-select',
+    i18n: {bundles: [colorSelectUsEnglishLocaleBundle]},
     schema: {
       types: [
         colorPreset,
@@ -221,6 +223,8 @@ export {
   sameColor,
   toColorValue,
 } from './color'
+export {colorSelectLocaleNamespace} from './i18n'
+export type {ColorSelectLocaleResourceKeys} from './i18n/resources'
 export type {
   ColorOptions,
   ColorPickerFieldOptions,

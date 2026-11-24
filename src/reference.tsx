@@ -18,6 +18,7 @@ import {
 import {usePaneRouter} from 'sanity/structure'
 
 import type {StoredColor} from './color'
+import {useColorSelectTranslation} from './i18n'
 import {ColorSwatch} from './presets'
 
 /** `deleted`: the preset has no published or draft document (references are weak). */
@@ -52,6 +53,7 @@ const insetClip = {clipPath: 'inset(3px round 2px)'}
 
 /** Like the compact preview, for a preset that's gone: the field's own swatch and CSS. */
 function StoredPreview({css}: {css: string | null}) {
+  const {t} = useColorSelectTranslation()
   return (
     <Flex align="center" gap={2} padding={1} style={{minWidth: 0}}>
       <Box style={{width: 25, height: 25, flex: 'none'}}>
@@ -59,7 +61,7 @@ function StoredPreview({css}: {css: string | null}) {
       </Box>
       <Box flex={1} style={{minWidth: 0}}>
         <Text size={1} weight="medium" textOverflow="ellipsis" muted={!css}>
-          {css ?? 'No color'}
+          {css ?? t('reference.no-color')}
         </Text>
       </Box>
     </Flex>
@@ -98,6 +100,7 @@ export function PresetReference({
   onUnlink: () => void
   onRemove: () => void
 }): JSX.Element {
+  const {t} = useColorSelectTranslation()
   const schemaType = useSchema().get(documentType)
   const perspective = usePerspective()
   const {ReferenceChildLink, handleEditReference} = usePaneRouter()
@@ -156,15 +159,15 @@ export function PresetReference({
                 <Box style={{maxWidth: 260}}>
                   <Text size={1}>
                     {storedCss
-                      ? `This preset was deleted. Frontends still get the stored color, ${storedCss}.`
-                      : 'This preset was deleted, and this field stores no color.'}
+                      ? t('reference.deleted.tooltip', {color: storedCss})
+                      : t('reference.deleted.tooltip.no-stored-color')}
                   </Text>
                 </Box>
               }
             >
               {/* Focusable, so keyboard users can read the tooltip too. */}
               <Badge tone="caution" tabIndex={0}>
-                Preset deleted
+                {t('reference.deleted')}
               </Badge>
             </Tooltip>
             <Button
@@ -172,7 +175,7 @@ export function PresetReference({
               tone="primary"
               fontSize={1}
               padding={2}
-              text="Unlink"
+              text={t('reference.unlink')}
               disabled={readOnly}
               style={insetClip}
               onClick={onUnlink}
@@ -188,13 +191,16 @@ export function PresetReference({
               content={
                 <Text size={1}>
                   {outdated.stored
-                    ? `The preset is now ${outdated.current}; this field still stores ${outdated.stored}.`
-                    : `The preset is now ${outdated.current}; this field stores no color yet.`}
+                    ? t('reference.changed.tooltip', {
+                        current: outdated.current,
+                        stored: outdated.stored,
+                      })
+                    : t('reference.changed.tooltip.no-stored-color', {current: outdated.current})}
                 </Text>
               }
             >
               <Text size={1} muted>
-                Preset changed
+                {t('reference.changed')}
               </Text>
             </Tooltip>
             {!readOnly && (
@@ -203,7 +209,7 @@ export function PresetReference({
                 tone="primary"
                 fontSize={1}
                 padding={2}
-                text="Update"
+                text={t('reference.update')}
                 style={insetClip}
                 onClick={onUpdate}
               />
@@ -214,7 +220,7 @@ export function PresetReference({
           id={menuId}
           button={
             <Button
-              aria-label="Preset actions"
+              aria-label={t('reference.menu.label')}
               data-preset-menu=""
               icon={EllipsisHorizontalIcon}
               mode="bleed"
@@ -223,18 +229,25 @@ export function PresetReference({
           }
           menu={
             <Menu>
-              <MenuItem icon={EditIcon} text="Replace" disabled={readOnly} onClick={onReplace} />
+              <MenuItem
+                icon={EditIcon}
+                text={t('reference.menu.replace')}
+                disabled={readOnly}
+                onClick={onReplace}
+              />
               <MenuItem
                 icon={UnlinkIcon}
-                text="Unlink from preset"
+                text={t('reference.menu.unlink')}
                 disabled={readOnly}
                 onClick={onUnlink}
               />
-              {!deleted && <MenuItem icon={LaunchIcon} text="Open preset" onClick={openPreset} />}
+              {!deleted && (
+                <MenuItem icon={LaunchIcon} text={t('reference.menu.open')} onClick={openPreset} />
+              )}
               <MenuDivider />
               <MenuItem
                 icon={TrashIcon}
-                text="Remove"
+                text={t('reference.menu.remove')}
                 tone="critical"
                 disabled={readOnly}
                 onClick={onRemove}

@@ -3,6 +3,7 @@ import {useRef, useState} from 'react'
 import type {SanityClient} from 'sanity'
 
 import {type ColorFormat, type ColorValue, type Hsva, toColorValue, toHex} from './color'
+import {useColorSelectTranslation} from './i18n'
 import type {ColorPreset} from './types'
 
 /** Inline "Name the preset" mode: the name being typed and the color being saved. */
@@ -71,6 +72,7 @@ export function useSavePreset({
   onClear: () => void
 }): SavePreset {
   const toast = useToast()
+  const {t} = useColorSelectTranslation()
   const [naming, setNaming] = useState<Naming | null>(null)
   const createdRef = useRef<CreatedPreset | null>(null)
 
@@ -111,7 +113,7 @@ export function useSavePreset({
       }
       if (entry.cancelled) return // Nothing was left behind.
       onFailed(color)
-      saveFailed('Could not save the preset', error)
+      saveFailed(t('toast.save-failed'), error)
     })
   }
 
@@ -133,7 +135,7 @@ export function useSavePreset({
       refresh()
     } catch (error) {
       // The preset exists, titled with its hex, and the field references it.
-      saveFailed('Could not rename the preset', error)
+      saveFailed(t('toast.rename-failed'), error)
     }
   }
 
@@ -157,7 +159,7 @@ export function useSavePreset({
       await client.delete(id)
       refresh()
     } catch (error) {
-      saveFailed('Could not delete the preset', error)
+      saveFailed(t('toast.delete-failed'), error)
     }
   }
 

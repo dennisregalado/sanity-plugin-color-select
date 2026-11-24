@@ -13,6 +13,7 @@ import {
 import {useClient} from 'sanity'
 
 import {type ColorFormat, formatColor, type Hsva, parseColor, toHex} from './color'
+import {useColorSelectTranslation} from './i18n'
 import {API_VERSION, ColorSwatch} from './presets'
 import {keepFocus} from './ui'
 
@@ -204,6 +205,7 @@ export function RecentColors({
   current: Hsva | null
   onSelect: (color: Hsva) => void
 }): JSX.Element | null {
+  const {t} = useColorSelectTranslation()
   // In this field's alpha: a field without alpha shows (and applies) them opaque.
   const swatches = useMemo(() => {
     const seen = new Set<string>()
@@ -251,13 +253,13 @@ export function RecentColors({
     <Stack gap={1}>
       <Box paddingX={2} paddingY={3}>
         <Text size={1} weight="medium">
-          Recent
+          {t('recent.heading')}
         </Text>
       </Box>
       <Flex
         ref={rowRef}
         role="group"
-        aria-label="Recent colors"
+        aria-label={t('recent.label')}
         wrap="wrap"
         gap={1}
         paddingX={1}
